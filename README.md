@@ -133,6 +133,15 @@ local my_modules = require("awm_kmodules")
 my_modules("awm_titleless")(function(c) return othermodule:is_othermodule_client(c) end)
 ```
 
+# AWM Simple Amixer Volume
+
+**AWM Simple Amixer Volume** is a really simple widget to track the volume with
+amixer. It hooks to global XF86 keys.
+```
+local my_modules = require("awm_kmodules")
+local volume_widget = my_modules("awm_simple_amixer_volume")
+```
+
 ## Authors
 
 * **Jose M Perez Ramos** - [Kuroneer](https://github.com/Kuroneer)
