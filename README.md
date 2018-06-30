@@ -142,6 +142,20 @@ local my_modules = require("awm_kmodules")
 local volume_widget = my_modules("awm_simple_amixer_volume")
 ```
 
+# AWM Simple Pacman Widget
+
+**AWM Simple Pacman Widget** is a really simple widget that stays hidden
+checking whether there are updates or not, displaying a ! if there are updates
+available. Custom commands could be provided.
+```
+local my_modules = require("awm_kmodules")
+local pacman_update = my_modules("awm_simple_pacman_widget")()
+local apt_update = my_modules("awm_simple_pacman_widget"){
+   check = "apt list --upgradable",
+   update = terminal .. " -e sudo apt update"
+}
+```
+
 ## Authors
 
 * **Jose M Perez Ramos** - [Kuroneer](https://github.com/Kuroneer)

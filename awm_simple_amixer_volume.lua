@@ -26,15 +26,16 @@ local widget = awful.widget.watch(commands.update, 45, update_function)
 require("gears.timer").delayed_call(function()
     local pending_action = false
     local callbacks = {exit = function()
-        awful.spawn.easy_async(commands.update, function(stdout)
+        if type(awful.spawn.easy_async(commands.update, function(stdout)
             update_function(widget, stdout)
             pending_action = false
-        end)
+        end)) ~= "number" then
+            pending_action = false
+        end
     end}
     local create_action = function(command_key)
         return function()
-            if pending_action then return end
-            awful.spawn.with_line_callback(commands[command_key], callbacks)
+            pending_action = pending_action or type(awful.spawn.with_line_callback(commands[command_key], callbacks)) == "number"
         end
     end
 
