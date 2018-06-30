@@ -1,7 +1,12 @@
 local awful = require("awful")
-local bars  = {"▁","▂","▃","▄","▅","▆","▇","█"}
 
-local update_command = "amixer -D pulse get Master"
+local bars  = {"▁","▂","▃","▄","▅","▆","▇","█"}
+local commands = {
+    decrease = "amixer -q -D pulse sset Master 5%-",
+    increase = "amixer -q -D pulse sset Master 5%+",
+    toggle_mute = "amixer -D pulse set Master 1+ toggle",
+    update = "amixer -D pulse get Master"
+}
 local update_function = function(widget, stdout)
     local sum_percentage, count, off = 0, 0, false
     for percentage, onoff in stdout:gmatch("(%d+)%%.*%[(%S*)%]") do
@@ -16,32 +21,34 @@ local update_function = function(widget, stdout)
     end
 end
 
-local widget = awful.widget.watch(update_command, 45, update_function)
+local widget = awful.widget.watch(commands.update, 45, update_function)
 
 require("gears.timer").delayed_call(function()
+    local pending_action = false
     local callbacks = {exit = function()
-        awful.spawn.easy_async(update_command, function(stdout)
+        awful.spawn.easy_async(commands.update, function(stdout)
             update_function(widget, stdout)
+            pending_action = false
         end)
     end}
+    local create_action = function(command_key)
+        return function()
+            if pending_action then return end
+            awful.spawn.with_line_callback(commands[command_key], callbacks)
+        end
+    end
 
     root.keys(awful.util.table.join(root.keys(), awful.util.table.join(
     -- Volume Keys from https://wiki.archlinux.org/index.php/awesome
-    awful.key({}, "XF86AudioLowerVolume", function ()
-        awful.spawn.with_line_callback("amixer -q -D pulse sset Master 5%-", callbacks)
-    end),
-    awful.key({}, "XF86AudioRaiseVolume", function ()
-        awful.spawn.with_line_callback("amixer -q -D pulse sset Master 5%+", callbacks)
-    end),
-    awful.key({}, "XF86AudioMute", function ()
-        awful.spawn.with_line_callback("amixer -D pulse set Master 1+ toggle", callbacks)
-    end)
+    awful.key({}, "XF86AudioLowerVolume", create_action("decrease")),
+    awful.key({}, "XF86AudioRaiseVolume", create_action("increase")),
+    awful.key({}, "XF86AudioMute", create_action("toggle_mute"))
     )))
 
     widget:buttons(awful.util.table.join(
-    awful.button({}, 1, function()
-        awful.spawn.with_line_callback("amixer -D pulse set Master 1+ toggle", callbacks)
-    end)
+    awful.button({}, 1, create_action("toggle_mute")),
+    awful.button({}, 4, create_action("increase")),
+    awful.button({}, 5, create_action("decrease"))
     ))
 end)
 
