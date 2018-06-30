@@ -51,17 +51,13 @@ end
 -- //////////////////////////////////////////////////////////////////////
 
 -- //////////////////////////////////////////////////////////////////////
-local function is_maximized(c) --fullscreen removes borders, fullscreen layout does not
-    return c.maximized or (c.maximized_horizontal and c.maximized_vertical)
-end
-
 local FLOAT_LAYOUT = awful.layout.suit.floating
 local function show_title(c, layout)
     if c and managed_list:is_managed(c) then
         layout = layout or awful.layout.get(c.screen)
 
         -- Full or Max layouts does not affect floating clients
-        if (layout == FLOAT_LAYOUT or c.floating) and not (c.fullscreen or is_maximized(c)) then
+        if (layout == FLOAT_LAYOUT or c.floating) and not c.fullscreen then
             awful.titlebar.show(c)
             c.ontop = true
         else
@@ -72,9 +68,6 @@ local function show_title(c, layout)
 end
 
 local handlers = { -- request::geometry for these triggers before actual redraw (and before property::X)
-    maximized = show_title,
-    maximized_vertical = show_title,
-    maximized_horizontal = show_title,
     fullscreen = show_title,
 }
 
