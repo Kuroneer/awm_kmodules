@@ -37,6 +37,12 @@ require("gears.timer").delayed_call(function()
         awful.spawn.with_line_callback("amixer -D pulse set Master 1+ toggle", callbacks)
     end)
     )))
+
+    widget:buttons(awful.util.table.join(
+    awful.button({}, 1, function()
+        awful.spawn.with_line_callback("amixer -D pulse set Master 1+ toggle", callbacks)
+    end)
+    ))
 end)
 
 return widget
