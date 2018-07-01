@@ -68,10 +68,10 @@ local function update_border_width(c, screen)
 
     for _,c in pairs(screen.clients) do
         if c.fullscreen or not managed_list:is_managed(c) then
-        elseif isMaximized(c) or ((maxedLayout or fullLayout) and not c.floating) then
+        elseif (isMaximized(c) or maxedLayout or fullLayout) and not (c.floating and not c._implicitly_floating) then
             -- Max and Full layouts do not max floating clients
             c.border_width = 0
-        elseif too_many or floatLayout or c.floating then
+        elseif too_many or floatLayout or (c.floating and not c._implicitly_floating) then
             c.border_width = beautiful.border_width
         elseif (not reserved) or reserved == c then
             reserved = c;

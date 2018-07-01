@@ -57,7 +57,7 @@ local function show_title(c, layout)
         layout = layout or awful.layout.get(c.screen)
 
         -- Full or Max layouts does not affect floating clients
-        if (layout == FLOAT_LAYOUT or c.floating) and not c.fullscreen then
+        if (layout == FLOAT_LAYOUT or (c.floating and not c._implicitly_floating)) and not c.fullscreen then
             awful.titlebar.show(c)
             c.ontop = true
         else
