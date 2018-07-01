@@ -97,8 +97,10 @@ function gradient_border:set_values(signal, v)
     v.origin_color_t = v.origin_color and {gears.color.parse_color(v.origin_color)}
     if v.origin_color_t then v.origin_color_t[4] = nil end
 
-    v.target_color_t = {gears.color.parse_color(v.target_color)}
-    v.target_color_t[4] = nil
+    if type(v.target_color) == "string" then
+        v.target_color_t = {gears.color.parse_color(v.target_color)}
+        v.target_color_t[4] = nil
+    end
 
     v.nsteps = math.ceil(v.elapse_time / v.interval)
     if v.origin_color_t and v.target_color_t then
@@ -135,19 +137,24 @@ function gradient_border:set_values_and_signals(signal, v)
         local nsteps = local_values.nsteps
         local step_t = local_values.step_t
         local step_is_zero = local_values.step_is_zero
+        local target_color_t = local_values.target_color_t
+        if not target_color_t then
+            target_color_t = {gears.color.parse_color(local_values.target_color(c))}
+            target_color_t[4] = nil
+        end
 
         if local_values.origin_color_t then
             set_border_color_from_table_n_steps(c, local_values.origin_color_t)
         else
             local current_color = {gears.color.parse_color(c.border_color)}
             current_color[4] = nil
-            step_t, step_is_zero = create_step(current_color, v.target_color_t, nsteps)
+            step_t, step_is_zero = create_step(current_color, target_color_t, nsteps)
         end
 
         if not step_is_zero then
             self.border_timers[c.window] = gears.timer.start_new(local_values.interval, function()
                 nsteps = (c == client.focus and 1 or local_values.unfocused_factor)* nsteps -1
-                set_border_color_from_table_n_steps(c, local_values.target_color_t, nsteps, step_t)
+                set_border_color_from_table_n_steps(c, target_color_t, nsteps, step_t)
                 return nsteps > 0
             end)
         end
