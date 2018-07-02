@@ -158,6 +158,16 @@ local apt_update = my_modules("awm_simple_pacman_widget"){
 }
 ```
 
+# AWM Distributed Tags
+
+**AWM Distributed Tags** is a simple module for AwesomeWM 4 to redistribute the
+tags among the available screens and move them when new screens are added or removed.
+
+```
+local my_modules = require("awm_kmodules")
+my_modules("awm_distributed_tags")
+```
+
 ## Authors
 
 * **Jose M Perez Ramos** - [Kuroneer](https://github.com/Kuroneer)
