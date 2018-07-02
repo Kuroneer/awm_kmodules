@@ -155,6 +155,7 @@ local pacman_update = my_modules("awm_simple_pacman_widget")()
 local apt_update = my_modules("awm_simple_pacman_widget"){
    check = "bash -c 'apt list --upgradable 2>/dev/null | tail -n +2'",
    update = terminal .. " -e sudo apt upgrade"
+}
 ```
 
 ## Authors
