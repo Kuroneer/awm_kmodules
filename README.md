@@ -107,6 +107,8 @@ focus_gradient_border_fun("focus", {
 -- When a client loses focus, change to border_normal from its current border color
 focus_gradient_border_fun("unfocus", {target_color = beautiful.border_normal})
 ```
+This plugin allows callbacks instead of target_color, the callback will be
+called with the client as argument.
 
 # AWM KBorderless
 
@@ -151,9 +153,8 @@ available. Custom commands could be provided.
 local my_modules = require("awm_kmodules")
 local pacman_update = my_modules("awm_simple_pacman_widget")()
 local apt_update = my_modules("awm_simple_pacman_widget"){
-   check = "apt list --upgradable",
-   update = terminal .. " -e sudo apt update"
-}
+   check = "bash -c 'apt list --upgradable 2>/dev/null | tail -n +2'",
+   update = terminal .. " -e sudo apt upgrade"
 ```
 
 ## Authors
