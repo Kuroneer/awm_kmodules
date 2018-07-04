@@ -55,14 +55,13 @@ local FLOAT_LAYOUT = awful.layout.suit.floating
 local function show_title(c, layout)
     if c and managed_list:is_managed(c) then
         layout = layout or awful.layout.get(c.screen)
+        local client_is_normal = c.type == "normal"
 
         -- Full or Max layouts does not affect floating clients
-        if (layout == FLOAT_LAYOUT or (c.floating and not c._implicitly_floating)) and not c.fullscreen then
+        if (layout == FLOAT_LAYOUT or (c.floating and (client_is_normal and not c._implicitly_floating or not client_is_normal))) and not c.fullscreen then
             awful.titlebar.show(c)
-            c.ontop = true
         else
             awful.titlebar.hide(c)
-            c.ontop = false
         end
     end
 end
