@@ -68,7 +68,7 @@ local function update_border_width(c, screen)
 
     for _,c in pairs(screen.clients) do
         if c.fullscreen or not managed_list:is_managed(c) then
-        elseif (isMaximized(c) or maxedLayout or fullLayout) and not (c.floating and not c._implicitly_floating) then
+        elseif (isMaximized(c) or maxedLayout or fullLayout) then
             -- Max and Full layouts do not max floating clients
             c.border_width = 0
         elseif too_many or floatLayout or (c.floating and not c._implicitly_floating) then
@@ -86,13 +86,6 @@ local function update_border_width(c, screen)
     end
 end
 
-local handlers = { -- request::geometry for these triggers before actual redraw (and before property::X)
-    maximized = update_border_width,
-    maximized_vertical = update_border_width,
-    maximized_horizontal = update_border_width,
-    fullscreen = update_border_width,
-}
-
 -- Control when client is maximized
 client.connect_signal("manage", function (c, _startup)
     -- Schedule cleanup
@@ -105,13 +98,13 @@ client.connect_signal("manage", function (c, _startup)
         update_border_width(c)
 
         -- Maximized signals (need to check every client in the screen)
-        c:connect_signal("request::geometry", function(client, event, args)
-            if handlers[event] then handlers[event](client) end
-        end)
-
         c:connect_signal("property::minimized", update_border_width) -- Check other clients
         c:connect_signal("property::floating", update_border_width)
         c:connect_signal("property::hidden", update_border_width)
+        c:connect_signal("property::maximized", update_border_width)
+        c:connect_signal("property::maximized_horizontal", update_border_width)
+        c:connect_signal("property::maximized_vertical", update_border_width)
+        c:connect_signal("property::fullscreen", update_border_width)
     end
 end)
 
