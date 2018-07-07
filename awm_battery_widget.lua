@@ -25,26 +25,26 @@
 ]]
 
 local awful = require("awful")
-local command = "acpi"
+local command = "acpi -V"
 
 local function update_widget_text(widget, stdout)
     local batteries = {}
     local all_ok = true
-    for battery in stdout:gmatch("([^\r\n]+)") do
-        local battery_formatted, battery_ok = widget:format_battery_output(battery)
+    for battery_index, battery in stdout:gmatch("Battery (%d+): ([^\r\n]+)[\r\n]Battery %1: [^\r\n]+") do
+        local battery_formatted, battery_ok = widget:format_battery_output(battery_index, battery)
         all_ok = all_ok and battery_ok
         table.insert(batteries, battery_formatted)
     end
-    widget:set_markup_silently(" "..table.concat(batteries).." ")
+    widget:set_markup_silently(" "..table.concat(batteries, " ").." ")
     return all_ok
 end
 
 local widget = awful.widget.watch(command, 60, update_widget_text)
 widget.update_widget_text = update_widget_text
 
-local bars  = {"X","▁","▂","▂","▃","▃","▄","▄","▅","▅","▆","▆","▇","▇","█","█"}
-function widget:format_battery_output(battery)
-    local battery_index, state, percentage, rest = battery:match("Battery (%d+): (%w+), (%d+)%%(.*)")
+local bars  = setmetatable({"X","▁","▂","▂","▃","▃","▄","▄","▅","▅","▆","▆","▇","▇","█","█"}, {__index = function() return "X" end})
+function widget:format_battery_output(battery_index, battery)
+    local state, percentage, rest = battery:match("(%w+), (%d+)%%(.*)")
     local time = rest:match(" (%d+:%d+):%d+")
     local battery_ok = state == "Full" or (time and state ~= "Unknown")
     time = time or (state ~= "Full" and "??:??")
