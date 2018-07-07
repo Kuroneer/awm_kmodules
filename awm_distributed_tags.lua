@@ -96,26 +96,9 @@ reorg_tags()
 tag.connect_signal("request::screen", function(t) for s in screen do t.screen = s return end end)
 
 -- Modify keybindings
-local keys = {}
-for _,k in pairs(root.keys()) do
-    local found = false
-    for i =1,9 do
-        if
-            awful.key.match(k, { modkey                     }, "#" .. i + 9) or
-            awful.key.match(k, { modkey, "Control"          }, "#" .. i + 9) or
-            awful.key.match(k, { modkey, "Shift"            }, "#" .. i + 9) or
-            awful.key.match(k, { modkey, "Control", "Shift" }, "#" .. i + 9) then
-            found = true
-            break
-        end
-    end
-    if not found then
-        table.insert(keys, k)
-    end
-end
-
+local new_keys = {}
 for i = 1, 9 do
-    keys = awful.util.table.join(keys, awful.util.table.join(
+    new_keys = awful.util.table.join(new_keys,
         -- View tag only.
         awful.key({ modkey }, "#" .. i + 9,
                   function ()
@@ -157,8 +140,22 @@ for i = 1, 9 do
                       end
                   end,
                   {description = "toggle focused client on tag #" .. i, group = "tag"})
-    ))
+    )
 end
 
-root.keys(keys)
+local keys = {}
+for _,k in pairs(root.keys()) do
+    local found = false
+    for i =1,9 do
+        if k.key == "#" .. (i + 9) then
+            found = true
+            break
+        end
+    end
+    if not found then
+        table.insert(keys, k)
+    end
+end
+
+root.keys(awful.util.table.join(keys, new_keys))
 
