@@ -47,7 +47,7 @@ function widget:format_battery_output(battery)
     local battery_index, state, percentage, rest = battery:match("Battery (%d+): (%w+), (%d+)%%(.*)")
     local time = rest:match(" (%d+:%d+):%d+")
     local battery_ok = state == "Full" or (time and state ~= "Unknown")
-    time = time or "??:??"
+    time = time or (state ~= "Full" and "??:??")
     percentage = tonumber(percentage)
     local text = string.format(
         '<span size="larger">⚡</span>%s %s%s',
