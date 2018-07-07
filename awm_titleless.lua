@@ -58,6 +58,7 @@ local function show_title(c, layout)
         local client_is_normal = c.type == "normal"
 
         -- Full or Max layouts does not affect floating clients
+        -- TODO Interaction with floating/float layout and fullscreen/maximize
         if (layout == FLOAT_LAYOUT or (c.floating and (client_is_normal and not c._implicitly_floating or not client_is_normal))) and not c.fullscreen then
             awful.titlebar.show(c)
         else
