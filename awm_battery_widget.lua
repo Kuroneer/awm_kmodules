@@ -36,6 +36,15 @@ local function update_widget_text(widget, stdout)
         table.insert(batteries, battery_formatted)
     end
     widget:set_markup_silently(" "..table.concat(batteries, " ").." ")
+
+    local widget_should_be_visible = #batteries > 0
+    if widget.visible ~= widget_should_be_visible then
+        widget:set_visible(widget_should_be_visible)
+        if widget.on_visible_callback then
+            widget:on_visible_callback(widget_should_be_visible)
+        end
+    end
+
     return all_ok
 end
 
@@ -94,5 +103,9 @@ dbus.connect_signal(dbus_interface, function(args)
     end
 end)
 
-return widget:update() and widget
+return widget, function(callback)
+    local previous_callback = widget.on_visible_callback
+    widget.on_visible_callback = callback
+    return previous_callback
+end
 
