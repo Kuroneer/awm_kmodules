@@ -103,9 +103,5 @@ dbus.connect_signal(dbus_interface, function(args)
     end
 end)
 
-return widget, function(callback)
-    local previous_callback = widget.on_visible_callback
-    widget.on_visible_callback = callback
-    return previous_callback
-end
+return widget
 
