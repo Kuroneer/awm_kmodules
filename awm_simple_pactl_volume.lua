@@ -1,3 +1,29 @@
+--[[
+    AWM Simple Pactl Volume is a widget for AwesomeWM 4 that monitors and
+    lets you control the volume of the current pulseaudio sink. It hooks to
+    the XF86 keys.
+
+    To use it:
+
+    local volume_widget = require("awm_simple_pactl_volume")
+
+    Version: 1.0.0
+    Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
+    Date: 2018.08.06
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+]]
 -- Modules
 local awful = require("awful")
 local naughty = require("naughty")
@@ -5,7 +31,6 @@ local timer = require("gears.timer")
 local wibox = require("wibox")
 
 -- Constants
-local bars  = {"▁","▂","▃","▄","▅","▆","▇","█"}
 local commands = {
     decrease = "pactl -- set-sink-volume %i -5%%",
     increase = "pactl -- set-sink-volume %i +5%%",
