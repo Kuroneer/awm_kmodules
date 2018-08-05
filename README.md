@@ -144,6 +144,15 @@ local my_modules = require("awm_kmodules")
 local volume_widget = my_modules("awm_simple_amixer_volume")
 ```
 
+# AWM Simple Pactl Volume
+
+**AWM Simple Pactl Volume** is a really simple widget to track the volume with
+pactl. It hooks to global XF86 keys.
+```
+local my_modules = require("awm_kmodules")
+local volume_widget = my_modules("awm_simple_pactl_volume")
+```
+
 # AWM Simple Pacman Widget
 
 **AWM Simple Pacman Widget** is a really simple widget that stays hidden
