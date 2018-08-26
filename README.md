@@ -186,6 +186,18 @@ local my_modules = require("awm_kmodules")
 local battery_widget = my_modules("awm_battery_widget")
 ```
 
+# AWM FZF Launcher
+
+**AWM FZF Launcher** displays a client on the screen with FZF to launch any
+executable in the $PATH, it includes taskbar clients to easy switching.
+
+```
+local my_modules = require("awm_kmodules")
+local awm_fzf_launcher = my_modules("awm_fzf_launcher")
+-- Show the launcher:
+awm_fzf_launcher()
+```
+
 ## Authors
 
 * **Jose M Perez Ramos** - [Kuroneer](https://github.com/Kuroneer)
