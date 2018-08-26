@@ -80,6 +80,7 @@ local state = {
     current_sink = nil,
     current_port = nil,
     sinks = {},
+    pactl_subscribe_pid = nil,
     widget = wibox.widget{
         markup = " ♬ M ",
         align  = 'center',
@@ -201,9 +202,17 @@ end)
 -- Scehdule state update with pactl subscribe
 do
     local pactl_subscribe
-    local schedule_restart = function() timer.start_new(60, pactl_subscribe) end
+    local schedule_restart = function()
+        state.pactl_subscribe_pid = nil
+        timer.start_new(60, pactl_subscribe)
+    end
     pactl_subscribe = function()
-        return type(awful.spawn.with_line_callback(unlocalize("pactl --client-name=awesomewm-listener subscribe"), {
+        if state.pactl_subscribe_pid then
+            local SIGTERM = 15
+            awesome.kill(state.pactl_subscribe_pid, SIGTERM)
+        end
+
+        state.pactl_subscribe_pid = awful.spawn.with_line_callback(unlocalize("pactl --client-name=awesomewm-listener subscribe"), {
             stdout = function(line)
                 local operation, sink_index = line:match("Event '(%w+)' on sink #(%d+)")
                 if operation then
@@ -216,11 +225,26 @@ do
                 end
             end,
             exit = schedule_restart
-        })) ~= "number"
+        })
+
+        if type(state.pactl_subscribe_pid) ~= "number" then
+            state.pactl_subscribe_pid = nil
+            return true
+        else
+            return false
+        end
     end
+
     if pactl_subscribe() then
         schedule_restart()
     end
+
+    awesome.connect_signal("exit", function()
+        if state.pactl_subscribe_pid then
+            local SIGTERM = 15
+            awesome.kill(state.pactl_subscribe_pid, SIGTERM)
+        end
+    end)
 end
 
 -- Schedule state update
