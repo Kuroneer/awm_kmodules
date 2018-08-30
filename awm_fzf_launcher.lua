@@ -149,8 +149,6 @@ function launcher:spawn(flags)
             function() self:launch(program, clients) end, nil, true)
         end)
     end
-
-    return self.client_pid
 end
 
 -- Create the terminal display
@@ -213,7 +211,8 @@ function launcher:init(options, flags)
         end)
     end
 
-    return self:spawn(flags)
+    self:spawn(flags)
+    return true
 end
 
 return setmetatable(launcher, { __call = function(t, ...) return t:init(...) end })
