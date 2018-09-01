@@ -25,50 +25,32 @@
 ]]
 
 local awful = require("awful")
-local command = "acpi -V"
-
-local function update_widget_text(widget, stdout)
-    local batteries = {}
-    local all_ok = true
-    for battery_index, battery in stdout:gmatch("Battery (%d+): ([^\r\n]+)[\r\n]Battery %1: [^\r\n]+") do
-        local battery_formatted, battery_ok = widget:format_battery_output(battery_index, battery)
-        all_ok = all_ok and battery_ok
-        table.insert(batteries, battery_formatted)
-    end
-    widget:set_markup_silently(" "..table.concat(batteries, " ").." ")
-
-    local widget_should_be_visible = #batteries > 0
-    if widget.visible ~= widget_should_be_visible then
-        widget:set_visible(widget_should_be_visible)
-        if widget.on_visible_callback then
-            widget:on_visible_callback(widget_should_be_visible)
-        end
-    end
-
-    return all_ok
-end
-
-local widget = awful.widget.watch(command, 60, update_widget_text)
-widget.update_widget_text = update_widget_text
-
-local bars  = setmetatable({"X","▁","▂","▂","▃","▃","▄","▄","▅","▅","▆","▆","▇","▇","█","█"}, {__index = function() return "X" end})
-function widget:format_battery_output(battery_index, battery)
-    local state, percentage, rest = battery:match("(%w+), (%d+)%%(.*)")
-    local time = rest:match(" (%d+:%d+):%d+")
-    local battery_ok = state == "Full" or (time and state ~= "Unknown")
-    time = time or (state ~= "Full" and "??:??")
-    percentage = tonumber(percentage)
-    local text = string.format(
-        '<span size="larger">⚡</span>%s %s%s',
-        tonumber(battery_index) > 0 and battery_index or "",
-        bars[math.floor(percentage * #bars / 100)],
-        time and " "..time or ""
-    )
-    return '<span color="'..self:color(state, percentage)..'">'..text..'</span>', battery_ok
-end
-
 local beautiful = require("beautiful")
-function widget:color(state, percentage)
+local wibox = require("wibox")
+
+local bars  = setmetatable({"X","▁","▁","▂","▂","▃","▃","▄","▄","▅","▅","▆","▆","▇","▇","█","█","█"}, {__index = function() return "X" end})
+local command = "acpi -V"
+local battery_widget = {
+    text_widget = wibox.widget{
+        markup = '',
+        align  = 'center',
+        valign = 'center',
+        widget = wibox.widget.textbox,
+    },
+    symbol_widget = wibox.widget{
+        markup = ' <span size="larger">⚡</span> ',
+        align  = 'center',
+        valign = 'center',
+        widget = wibox.widget.textbox,
+    },
+}
+battery_widget.widget = wibox.widget{
+    battery_widget.symbol_widget,
+    battery_widget.text_widget,
+    layout  = wibox.layout.align.horizontal
+}
+
+function battery_widget:color(state, percentage)
     if state == "Charging"  then
         return beautiful.battery_fg_charging or "green"
     elseif state == "Full" then
@@ -80,16 +62,64 @@ function widget:color(state, percentage)
     end
 end
 
+function battery_widget:format_battery_output(battery)
+    local state, percentage, rest = battery:match("(%w+), (%d+)%%(.*)")
+    local time = rest:match(" (%d+:%d+):%d+")
+    local battery_ok = state == "Full" or (time and state ~= "Unknown")
+    time = time or (state ~= "Full" and "??:??")
+    percentage = tonumber(percentage)
+
+    local color = self:color(state, percentage)
+
+    self.text_widget:set_markup(string.format(
+        '<span color="%s">%s %s</span>',
+        color,
+        bars[math.floor(percentage * (#bars-1) / 100)+1],
+        time and string.format("%s ", time) or ''
+    ))
+
+    self.symbol_widget:set_markup(string.format(
+        ' <span size="larger" color="%s">⚡</span> ',
+        color
+    ))
+
+    return battery_ok
+end
+
+
+function battery_widget:update_widget_text(stdout)
+    local battery_present = false
+    local battery_ok = false
+
+    for _, battery_output in stdout:gmatch("Battery (%d+): ([^\r\n]+)[\r\n]Battery %1: [^\r\n]+") do
+        battery_ok = battery_widget:format_battery_output(battery_output)
+        battery_present = true
+        break
+    end
+
+    local widget = battery_widget.widget
+    if widget.visible ~= battery_present then
+        widget:set_visible(battery_present)
+        if widget.on_visible_callback then
+            widget:on_visible_callback(battery_present)
+        end
+    end
+
+    return battery_ok
+end
+
+battery_widget.watcher = awful.widget.watch(command, 60, function(watcher, stdout)
+    battery_widget:update_widget_text(stdout)
+end)
+
 local timer = require("gears.timer")
-function widget:update()
+function battery_widget:update()
     self.pending_action = self.pending_action or type(awful.spawn.easy_async(command, function(stdout)
-        local ok = self:update_widget_text(stdout)
         self.pending_action = false
-        if not ok then
-            timer.start_new(5, function() widget:update() end)
+        if not self:update_widget_text(stdout) then
+            timer.start_new(5, function() self:update() end)
         end
     end)) == "number"
-    return self.pending_action
 end
 
 local dbus_interface = "org.freedesktop.DBus.Properties"
@@ -98,10 +128,10 @@ local dbus_path = "/org/freedesktop/UPower"
 dbus.add_match("system", "type='signal',interface='"..dbus_interface.."',member='"..dbus_member.."',path='"..dbus_path.."'" )
 dbus.connect_signal(dbus_interface, function(args)
     if args.member == dbus_member and args.path == dbus_path then
-        widget:update()
-        timer.start_new(10, function() widget:update() end)
+        battery_widget:update()
+        timer.start_new(10, function() battery_widget:update() end)
     end
 end)
 
-return widget
+return battery_widget.widget
 
