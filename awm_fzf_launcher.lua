@@ -42,8 +42,8 @@ local launcher = {
         reading_fifo_path = '/tmp/.awm_fzf_launcher.out',
         notitle = true,
         command = 'fzf +m -1 -0 -e < <(basename --multiple $(find -L $(sed "s/:/ /g" <<< $PATH ) -type f -executable -maxdepth 1 2>/dev/null) | sort -u)',
-        command_with_clients = 'cat <( cat << '..HEREDOCTAG.."\n",
-        command_with_clients_tail = HEREDOCTAG.."\n) <(basename --multiple $(find -L $(sed \"s/:/ /g\" <<< $PATH ) -type f -executable -maxdepth 1 2>/dev/null) | sort -u) | fzf +m -1 -0 -e",
+        command_with_clients = 'fzf +m -1 -0 -e < <( cat <<'..HEREDOCTAG.."\n",
+        command_with_clients_tail = HEREDOCTAG.."\n basename --multiple $(find -L $(sed \"s/:/ /g\" <<< $PATH ) -type f -executable -maxdepth 1 2>/dev/null) | sort -u)",
         width = .3,
         height = .3,
     }
