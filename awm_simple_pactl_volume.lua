@@ -81,12 +81,23 @@ local state = {
     current_port = nil,
     sinks = {},
     pactl_subscribe_pid = nil,
-    widget = wibox.widget{
-        markup = " ♬ M ",
+    text_widget = wibox.widget{
+        markup = "M ",
         align  = 'center',
         valign = 'center',
         widget = wibox.widget.textbox,
-    }
+    },
+    symbol_widget = wibox.widget{
+        markup = ' ♬ ',
+        align  = 'center',
+        valign = 'center',
+        widget = wibox.widget.textbox,
+    },
+}
+state.widget = wibox.widget{
+    state.symbol_widget,
+    state.text_widget,
+    layout  = wibox.layout.align.horizontal
 }
 
 -- Update state information
@@ -192,9 +203,9 @@ local process_sinks = async_run_generator(unlocalize("pactl list sinks"), functi
     -- Update widget with current_sink info
     if state.current_sink then
         if best_sink.muted then
-            state.widget:set_text(" ♬ M ")
+            state.text_widget:set_text("M ")
         else
-            state.widget:set_text(string.format(" ♬ %s ", best_sink.volume > 0 and math.floor(best_sink.volume) or "X"))
+            state.text_widget:set_text(string.format("%s ", best_sink.volume > 0 and math.floor(best_sink.volume) or "X"))
         end
     end
 end)
