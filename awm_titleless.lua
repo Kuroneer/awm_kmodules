@@ -54,6 +54,11 @@ end
 local FLOAT_LAYOUT = awful.layout.suit.floating
 local function show_title(c, layout)
     if c and managed_list:is_managed(c) then
+        if c.requests_no_titlebar then
+            awful.titlebar.hide(c)
+            return
+        end
+
         layout = layout or awful.layout.get(c.screen)
         local client_is_normal = c.type == "normal"
 
