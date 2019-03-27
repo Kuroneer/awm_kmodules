@@ -51,6 +51,14 @@ end
 -- //////////////////////////////////////////////////////////////////////
 
 -- //////////////////////////////////////////////////////////////////////
+local function get_titlebar_size(c)
+    local _, t = c:titlebar_top()
+    local _, b = c:titlebar_bottom()
+    local _, l = c:titlebar_left()
+    local _, r = c:titlebar_right()
+    return t + b + l + r
+end
+
 local FLOAT_LAYOUT = awful.layout.suit.floating
 local function show_title(c, layout)
     if c and managed_list:is_managed(c) then
@@ -62,6 +70,8 @@ local function show_title(c, layout)
         layout = layout or awful.layout.get(c.screen)
         local client_is_normal = c.type == "normal"
 
+        local previous_titlebar_size = get_titlebar_size(c)
+
         -- Full or Max layouts does not affect floating clients
         if (layout == FLOAT_LAYOUT or (c.floating and (client_is_normal and (not c._implicitly_floating or not c.maximized) or not client_is_normal))) and not c.fullscreen then
             awful.titlebar.show(c)
@@ -70,13 +80,28 @@ local function show_title(c, layout)
             awful.titlebar.hide(c)
             c.ontop = false
         end
+
+        return previous_titlebar_size ~= get_titlebar_size(c)
     end
 end
 
 local handlers = { -- request::geometry for these triggers before actual redraw (and before property::X)
     fullscreen = show_title,
     maximized = show_title,
+    maximized_vertical = show_title,
+    maximized_horizontal = show_title,
 }
+
+local function show_title_and_trigger(c)
+    if show_title(c) then
+        for event in pairs(handlers) do
+            if c[event] then
+                c:emit_signal("request::geometry", event, {store_geometry = false})
+                break
+            end
+        end
+    end
+end
 
 client.connect_signal("manage", function (c, startup)
     managed_list:check(c)
@@ -84,8 +109,10 @@ client.connect_signal("manage", function (c, startup)
     -- Schedule cleanup
     c:connect_signal("unmanage", function() managed_list:delete(c) end)
 
-    show_title(c)
-    c:connect_signal("property::floating", show_title)
+    -- Trigger the geometry placement if the titlebar has been hidden just now
+    show_title_and_trigger(c)
+
+    c:connect_signal("property::floating", show_title_and_trigger)
     c:connect_signal("request::geometry", function(client, event, args)
         if handlers[event] then handlers[event](client, args) end
     end)
