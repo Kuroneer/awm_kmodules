@@ -74,6 +74,16 @@ xrandr_setup_iter()
 ```
 (This module automatically hooks that call to the XF86Display key)
 
+If you'd rather have a different script in charge of setting up the screens, you
+can use:
+```
+xrand_setup_iter.trigger_command_path = "~/.screen_layout_changed"
+
+```
+This path will be called with the connected screens as an argument
+(comma-separated)
+
+
 # AWM Focus Gradient Border
 
 **AWM Focus Gradient Border** is a module that applies a gradient over time to the focused client border color.

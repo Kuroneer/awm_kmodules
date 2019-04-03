@@ -50,6 +50,7 @@ local screen = screen
 
 local xrandr = {
     setup_direction = "horizontal",
+    trigger_command_path = nil,
 
     screens_connected = {},
     screens_setup = {},
@@ -149,6 +150,7 @@ end
 
 function xrandr:get_connected_screens(callback)
     return type(awful.spawn.easy_async("xrandr -q", function(stdout, stderr, exitReason, exitCode)
+        local previous_setup = xrandr.screens_setup
         local all_displays = nil
         if exitCode == 0 then
             local current_setup = {}
@@ -164,7 +166,6 @@ function xrandr:get_connected_screens(callback)
                 end
             end
             table.sort(current_setup, function(a,b) return a.value < b.value end)
-            local previous_setup = xrandr.screens_setup
             xrandr.screens_setup = {}
             for _,v in ipairs(current_setup) do
                 table.insert(xrandr.screens_setup, v.name)
@@ -259,7 +260,13 @@ dbus.connect_signal(dbus_interface, function(args)
         xrandr.coroutine = nil
 
         local known_connected_screens = xrandr.screens_connected
-        if not xrandr:get_connected_screens(function(_displays)
+        if not xrandr:get_connected_screens(function(displays)
+
+            if xrandr.trigger_command_path then
+                awful.spawn.with_shell(xrandr.trigger_command_path .. ' ' .. table.concat(displays or {}, ','))
+                return
+            end
+
             local current_displays = xrandr.screens_connected
             local setup_changed = false
 
