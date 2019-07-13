@@ -188,7 +188,7 @@ my_modules("awm_distributed_tags")
 # AWM Battery Widget
 
 **AWM Battery Widget** is a widget for AwesomeWM 4 that monitors the
-battery status through acpi. It hooks to the UPower DBus events.
+battery status through upower. It hooks to the UPower DBus events.
 
 ```
 local my_modules = require("awm_kmodules")

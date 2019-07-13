@@ -1,14 +1,14 @@
 --[[
     AWM Battery Widget is a widget for AwesomeWM 4 that monitors the
-    battery status through acpi. It hooks to the UPower DBus events.
+    battery status through upower. It hooks to the UPower DBus events.
 
     To use it:
 
     local battery_widget = require("awm_battery_widget")
 
-    Version: 1.0.0
+    Version: 1.1.0
     Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
-    Date: 2018.07.07
+    Date: 2019.07.13
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -27,9 +27,9 @@
 local awful = require("awful")
 local beautiful = require("beautiful")
 local wibox = require("wibox")
+local naughty = require("naughty")
 
 local bars  = setmetatable({"X","▁","▁","▂","▂","▃","▃","▄","▄","▅","▅","▆","▆","▇","▇","█","█","█"}, {__index = function() return "X" end})
-local command = "acpi -V"
 local battery_widget = {
     text_widget = wibox.widget{
         markup = '',
@@ -43,6 +43,12 @@ local battery_widget = {
         valign = 'center',
         widget = wibox.widget.textbox,
     },
+    state = {
+        initialized = false,
+        event_queue = {},
+        devices = {},
+    },
+    popup_notification = nil,
 }
 battery_widget.widget = wibox.widget{
     battery_widget.symbol_widget,
@@ -50,10 +56,92 @@ battery_widget.widget = wibox.widget{
     layout  = wibox.layout.align.horizontal
 }
 
-function battery_widget:color(state, percentage)
-    if state == "Charging"  then
+battery_widget.widget:connect_signal("mouse::enter", function() battery_widget.popup = true;  battery_widget:update_popup_notification() end)
+battery_widget.widget:connect_signal("mouse::leave", function() battery_widget.popup = false; battery_widget:update_popup_notification() end)
+
+local current_device_path, current_device
+function battery_widget:reinitialize()
+    if self.state.ongoing_action then
+        self.state.pending_action = true
+        return true
+    end
+
+    self.state.initialized = false
+    self.state.event_queue = {}
+    self.state.devices = {}
+
+    current_device_path = nil
+    current_device = {}
+
+    if type(awful.spawn.with_line_callback('bash -c "LC_ALL=C upower --dump"', {
+            output_done = function()
+                if current_device_path then
+                    self.state.devices[current_device_path] = current_device
+                    current_device_path = nil
+                    current_device = {}
+                end
+                for _, device in pairs(self.state.devices) do
+                    device.percentage = device.percentage and tonumber(device.percentage)
+                    device.present = device.present ~= 'no'
+                end
+
+                self.state.ongoing_action = false
+                if self.state.pending_action then
+                    self.state.pending_action = false
+                    self:reinitialize()
+                else
+                    for _, e in ipairs(self.state.event_queue) do
+                        battery_widget:apply_event(e[1], e[2])
+                    end
+                    self.state.event_queue = {}
+                    self.state.initialized = true
+                    battery_widget:redraw()
+                end
+            end,
+            stdout = function(line)
+                local new_device = line:match("Device: +(/.*)")
+                if new_device then
+                    if current_device_path then
+                        self.state.devices[current_device_path] = current_device
+                    end
+                    current_device_path = new_device
+                    current_device = {}
+                    return
+                end
+                if not current_device_path then return end
+
+                current_device.present       = line:match("^ +present: +(%w+)")         or current_device.present
+                current_device.percentage    = line:match("^ +percentage: +(%d+)%%")    or current_device.percentage
+                current_device.time_to_full  = line:match("^ +time to full: +(%d+.*)")  or current_device.time_to_full
+                current_device.time_to_empty = line:match("^ +time to empty: +(%d+.*)") or current_device.time_to_empty
+                current_device.model         = line:match("^ +model: +([^ ].*)")           or current_device.model
+                current_device.native_path   = line:match("^ +native%-path: +(/.*)")     or current_device.native_path
+            end,
+            stderr = function() end,
+    })) == "number" then
+        self.state.ongoing_action = true
+        return true
+    end
+end
+
+function battery_widget:apply_event(event, values)
+    local device_path = event.path
+    local device = self.state.devices[device_path]
+    if not device then return end
+
+    device.percentage = values.Percentage or device.percentage
+    device.time_to_empty = values.TimeToEmpty or device.time_to_empty
+    device.time_to_full = values.TimeToFull or device.time_to_full
+    device.present = values.IsPresent or device.present
+
+    if device.time_to_empty and device.time_to_empty < 1 then device.time_to_empty = nil end
+    if device.time_to_full  and device.time_to_full  < 1 then device.time_to_full  = nil end
+end
+
+function battery_widget:color(time_to_empty, time_to_full, percentage)
+    if time_to_full then
         return beautiful.battery_fg_charging or "green"
-    elseif state == "Full" then
+    elseif not time_to_empty then
         return beautiful.battery_fg_full or "green"
     elseif percentage < 15 then
         return beautiful.battery_fg_critical or "red"
@@ -62,42 +150,21 @@ function battery_widget:color(state, percentage)
     end
 end
 
-function battery_widget:format_battery_output(battery)
-    local state, percentage, rest = battery:match("(%w+), (%d+)%%(.*)")
-    local time = rest:match(" (%d+:%d+):%d+")
-    local battery_ok = state == "Full" or (time and state ~= "Unknown")
-    time = time or (state ~= "Full" and "??:??")
-    percentage = tonumber(percentage)
+local function stringify_estimation(estimation)
+    estimation = estimation / 60
+    local minutes = estimation % 60
+    estimation = estimation / 60
 
-    local color = self:color(state, percentage)
-
-    self.text_widget:set_markup(string.format(
-        '<span color="%s">%s %s</span>',
-        color,
-        bars[math.floor(percentage * (#bars-1) / 100)+1],
-        time and string.format("%s ", time) or ''
-    ))
-
-    self.symbol_widget:set_markup(string.format(
-        ' <span size="larger" color="%s">⚡</span> ',
-        color
-    ))
-
-    return battery_ok
+    return string.format("%.0f:%02.0f", estimation, minutes)
 end
 
+function battery_widget:redraw()
+    local widget = self.widget
+    local display_device = self.state.devices['/org/freedesktop/UPower/devices/DisplayDevice']
 
-function battery_widget:update_widget_text(stdout)
-    local battery_present = false
-    local battery_ok = false
 
-    for _, battery_output in stdout:gmatch("Battery (%d+): ([^\r\n]+)[\r\n]Battery %1: [^\r\n]+") do
-        battery_ok = battery_widget:format_battery_output(battery_output)
-        battery_present = true
-        break
-    end
-
-    local widget = battery_widget.widget
+    local percentage = display_device and display_device.present and display_device.percentage
+    local battery_present = percentage ~= nil
     if widget.visible ~= battery_present then
         widget:set_visible(battery_present)
         if widget.on_visible_callback then
@@ -105,33 +172,95 @@ function battery_widget:update_widget_text(stdout)
         end
     end
 
-    return battery_ok
-end
-
-battery_widget.watcher = awful.widget.watch(command, 60, function(watcher, stdout)
-    battery_widget:update_widget_text(stdout)
-end)
-
-local timer = require("gears.timer")
-function battery_widget:update()
-    self.pending_action = self.pending_action or type(awful.spawn.easy_async(command, function(stdout)
-        self.pending_action = false
-        if not self:update_widget_text(stdout) then
-            timer.start_new(5, function() self:update() end)
+    if battery_present then
+        local color = self:color(display_device.time_to_empty, display_device.time_to_full, percentage)
+        local time = tonumber(display_device.time_to_empty or display_device.time_to_full)
+        local timestr = time and string.format("%s ", stringify_estimation(time)) or ''
+        if percentage < 100 and not time then -- Fallback to percentage instead of parsing raw_time
+            timestr = string.format("%02.0f%% ", percentage)
         end
-    end)) == "number"
+
+        self.text_widget:set_markup(string.format(
+            '<span color="%s">%s %s</span>',
+            color,
+            bars[math.floor(percentage * (#bars-1) / 100)+1],
+            timestr
+        ))
+
+        self.symbol_widget:set_markup(string.format(
+            ' <span size="larger" color="%s">⚡</span> ',
+            color
+        ))
+    end
+
+    self:update_popup_notification()
 end
 
-local dbus_interface = "org.freedesktop.DBus.Properties"
-local dbus_member = "PropertiesChanged"
-local dbus_path = "/org/freedesktop/UPower"
-dbus.add_match("system", "type='signal',interface='"..dbus_interface.."',member='"..dbus_member.."',path='"..dbus_path.."'" )
-dbus.connect_signal(dbus_interface, function(args)
-    if args.member == dbus_member and args.path == dbus_path then
-        battery_widget:update()
-        timer.start_new(10, function() battery_widget:update() end)
-    end
-end)
+function battery_widget:update_popup_notification()
+    local notification = naughty.getById(self.popup_notification)
 
-return battery_widget.widget
+    -- To avoid handling text
+    if not self.popup then
+        if notification then
+            naughty.destroy(notification)
+        end
+        return
+    end
+
+    local text
+    for device_path, device in pairs(self.state.devices) do
+        if device.native_path and device.present and device.percentage then
+            local color = self:color(device.time_to_empty, device.time_to_full, device.percentage)
+            local line = string.format('<span color="%s">%s - %.0f%%</span>', color, device.model or device_path:match("^.*/([^/]+)$"), device.percentage)
+
+            if text then
+                text = text.."\n"..line
+            else
+                text = line
+            end
+        end
+    end
+
+    if notification then
+        if not text then
+            naughty.destroy(notification)
+        else
+            naughty.replace_text(notification, nil, text)
+        end
+    elseif text then
+        self.popup_notification = naughty.notify({
+            text = text,
+            timeout = 0,
+            replaces_id = self.popup_notification,
+        }).id
+    end
+end
+
+if battery_widget:reinitialize() then
+    -- Hook to DBus
+    local function dbus_match(interface, member, path_namespace)
+        return "type='signal',interface='"..interface.."',member='"..member.."',path_namespace='"..path_namespace.."'"
+    end
+
+    local dbus_properties_interface = 'org.freedesktop.DBus.Properties'
+    local dbus_upower_interface = 'org.freedesktop.UPower'
+
+    dbus.add_match("system", dbus_match(dbus_properties_interface, 'PropertiesChanged', '/org/freedesktop/UPower/devices'))
+    dbus.add_match("system", dbus_match(dbus_upower_interface,     'DeviceAdded'  ,     '/org/freedesktop/UPower'))
+    dbus.add_match("system", dbus_match(dbus_upower_interface,     'DeviceRemoved',     '/org/freedesktop/UPower'))
+
+    dbus.connect_signal(dbus_properties_interface, function(event, string, values)
+        if battery_widget.state.initialized then
+            battery_widget:apply_event(event, values)
+            battery_widget:redraw()
+        else
+            table.insert(battery_widget.state.event_queue, {event, values})
+        end
+    end)
+    dbus.connect_signal(dbus_upower_interface, function(event, string, values)
+        battery_widget:reinitialize()
+    end)
+
+    return battery_widget.widget
+end
 
