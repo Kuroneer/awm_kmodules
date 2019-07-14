@@ -155,7 +155,7 @@ local function stringify_estimation(estimation)
     local minutes = estimation % 60
     estimation = estimation / 60
 
-    return string.format("%.0f:%02.0f", estimation, minutes)
+    return string.format("%.0f:%02.0f", math.floor(estimation), minutes)
 end
 
 function battery_widget:redraw()
