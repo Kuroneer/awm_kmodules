@@ -112,11 +112,13 @@ xrandr.timer = gears.timer{
 
 do
     local original_font = xrandr.notification_defaults.font or beautiful.font
-    local new_font = string.gsub(original_font, " (%d+)$", function(fontsize) return tostring(2*tonumber(fontsize)) end)
-    if new_font == original_font then
-        xrandr.notification_defaults.font = original_font.." "..math.floor(((beautiful.get_font_height(original_font) or 8)*2))
-    else
-        xrandr.notification_defaults.font = new_font
+    if original_font then
+        local new_font = string.gsub(original_font, " (%d+)$", function(fontsize) return tostring(2*tonumber(fontsize)) end)
+        if new_font == original_font then
+            xrandr.notification_defaults.font = original_font.." "..math.floor(((beautiful.get_font_height(original_font) or 8)*2))
+        else
+            xrandr.notification_defaults.font = new_font
+        end
     end
 end
 
