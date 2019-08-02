@@ -89,7 +89,7 @@ local state = {
     },
     symbol_widget = wibox.widget{
         markup = ' ♬ ',
-        align  = 'center',
+        align  = 'left',
         valign = 'center',
         widget = wibox.widget.textbox,
     },
@@ -97,7 +97,7 @@ local state = {
 state.widget = wibox.widget{
     state.symbol_widget,
     state.text_widget,
-    layout  = wibox.layout.align.horizontal
+    layout = wibox.layout.align.horizontal
 }
 
 -- Update state information
