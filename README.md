@@ -195,6 +195,17 @@ local my_modules = require("awm_kmodules")
 local battery_widget = my_modules("awm_battery_widget")
 ```
 
+# AWM Playerctl
+
+**AWM playerctl** is a module for AwesomeWM 4 that monitors the list of players
+reported by playerctl and directs the XF86 media keys to the most recently
+used player.
+
+```
+local my_modules = require("awm_kmodules")
+my_modules("awm_playerctl")
+```
+
 # AWM FZF Launcher
 
 **AWM FZF Launcher** displays a client on the screen with FZF to launch any
