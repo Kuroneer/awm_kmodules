@@ -129,7 +129,7 @@ function launcher:spawn(flags)
             --TODO Use pipe
             command = flags.terminal .. " bash -c '" ..flags.command_with_clients
             for _, c in ipairs(client.get()) do
-                if not c.skip_taskbar then
+                if c.name and not c.skip_taskbar then
                     local name = c.name:gsub('\'', '"') --FIXME escape '
                     clients[name] = c
                     command = command..name.."\n"
