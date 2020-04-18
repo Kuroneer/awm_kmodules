@@ -6,9 +6,9 @@
 
     local battery_widget = require("awm_battery_widget")
 
-    Version: 1.1.0
+    Version: 1.1.1
     Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
-    Date: 2019.07.13
+    Date: 2020.04.18
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -115,7 +115,7 @@ function battery_widget:reinitialize()
                 current_device.time_to_full  = line:match("^ +time to full: +(%d+.*)")  or current_device.time_to_full
                 current_device.time_to_empty = line:match("^ +time to empty: +(%d+.*)") or current_device.time_to_empty
                 current_device.model         = line:match("^ +model: +([^ ].*)")           or current_device.model
-                current_device.native_path   = line:match("^ +native%-path: +(/.*)")     or current_device.native_path
+                current_device.native_path   = line:match("^ +native%-path: +(.*)")     or current_device.native_path
             end,
             stderr = function() end,
     })) == "number" then
