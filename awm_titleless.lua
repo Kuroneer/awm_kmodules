@@ -33,20 +33,17 @@ local managed_list = {
     unmanaged_callbacks = {},
 }
 function managed_list:check(c)
-    self.clients[c.window] = false
     for _,f in pairs(self.unmanaged_callbacks) do
         if type(f) == "function" and f(c) then
-            return
+            return false
         end
     end
     self.clients[c.window] = true
+    c:connect_signal("unmanage", function() self.clients[c.window] = nil end)
     return true
 end
-function managed_list:delete(c)
-    self.clients[c.window] = nil
-end
 function managed_list:is_managed(c)
-    return self.clients[c.window]
+    return c and self.clients[c.window]
 end
 -- //////////////////////////////////////////////////////////////////////
 
@@ -61,17 +58,16 @@ end
 
 local FLOAT_LAYOUT = awful.layout.suit.floating
 local function show_title(c, layout)
-    if c and managed_list:is_managed(c) then
-        if c.requests_no_titlebar then
-            awful.titlebar.hide(c)
-            return
-        end
-
+    if managed_list:is_managed(c) then
         layout = layout or awful.layout.get(c.screen)
         local client_is_normal = c.type == "normal"
         local client_is_floating = c:get_floating()
-
         local previous_titlebar_size = get_titlebar_size(c)
+
+        if c.requests_no_titlebar then
+            awful.titlebar.hide(c)
+            return previous_titlebar_size ~= get_titlebar_size(c)
+        end
 
         -- Full or Max layouts does not affect floating clients
         local should_show = false
@@ -98,19 +94,16 @@ local handlers = { -- request::geometry for these triggers before actual redraw 
 }
 
 client.connect_signal("manage", function (c, startup)
-    managed_list:check(c)
+    if managed_list:check(c) then
+        show_title(c)
+        c:connect_signal("property::floating", show_title)
+        c:connect_signal("property::requests_no_titlebar", show_title)
 
-    -- Schedule cleanup
-    c:connect_signal("unmanage", function() managed_list:delete(c) end)
-
-    show_title(c)
-    c:connect_signal("property::floating", show_title)
-    c:connect_signal("property::requests_no_titlebar", show_title)
-
-    -- To avoid flickering, hook before property::X
-    c:connect_signal("request::geometry", function(client, event, args)
-        if handlers[event] then handlers[event](client) end
-    end)
+        -- To avoid flickering, hook before property::X
+        c:connect_signal("request::geometry", function(client, event, args)
+            if handlers[event] then handlers[event](client) end
+        end)
+    end
 end)
 -- //////////////////////////////////////////////////////////////////////
 
