@@ -21,8 +21,8 @@
     along with this program.    If not, see <http://www.gnu.org/licenses/>.
 
     Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
-    Date: 2018.06.07
-    Version: 2.0.0
+    Date: 2021.08.23
+    Version: 2.0.1
 ]]
 
 local awful = require("awful")
