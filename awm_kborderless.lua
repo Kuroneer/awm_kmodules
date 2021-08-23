@@ -22,8 +22,8 @@
     along with this program.    If not, see <http://www.gnu.org/licenses/>.
 
     Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
-    Date: 2018.06.07
-    Version: 2.0.0
+    Date: 2021.08.23
+    Version: 2.0.1
 ]]
 
 local awful = require("awful")
@@ -35,20 +35,17 @@ local managed_list = {
     unmanaged_callbacks = {},
 }
 function managed_list:check(c)
-    self.clients[c.window] = false
     for _,f in pairs(self.unmanaged_callbacks) do
         if type(f) == "function" and f(c) then
-            return
+            return false
         end
     end
     self.clients[c.window] = true
+    c:connect_signal("unmanage", function() self.clients[c.window] = nil end)
     return true
 end
-function managed_list:delete(c)
-    self.clients[c.window] = nil
-end
 function managed_list:is_managed(c)
-    return self.clients[c.window]
+    return c and self.clients[c.window]
 end
 -- //////////////////////////////////////////////////////////////////////
 
@@ -71,7 +68,7 @@ local function update_border_width(c, screen)
         elseif (isMaximized(c) or maxedLayout or fullLayout) then
             -- Max and Full layouts do not max floating clients
             c.border_width = 0
-        elseif too_many or floatLayout or (c.floating and not c._implicitly_floating) then
+        elseif too_many or floatLayout or c:get_floating() then
             c.border_width = beautiful.border_width
         elseif (not reserved) or reserved == c then
             reserved = c;
@@ -88,12 +85,6 @@ end
 
 -- Control when client is maximized
 client.connect_signal("manage", function (c, _startup)
-    -- Schedule cleanup
-    c:connect_signal("unmanage", function()
-        managed_list:delete(c)
-    end)
-
-    -- Check if should manage
     if managed_list:check(c) then
         update_border_width(c)
 
