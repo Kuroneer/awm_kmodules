@@ -69,11 +69,16 @@ local function show_title(c, layout)
 
         layout = layout or awful.layout.get(c.screen)
         local client_is_normal = c.type == "normal"
+        local client_is_floating = c:get_floating()
 
         local previous_titlebar_size = get_titlebar_size(c)
 
         -- Full or Max layouts does not affect floating clients
-        if (layout == FLOAT_LAYOUT or (c.floating and (client_is_normal and (not c._implicitly_floating or not c.maximized) or not client_is_normal))) and not c.fullscreen then
+        local should_show = false
+        should_show = should_show or layout == FLOAT_LAYOUT
+        should_show = should_show or (client_is_floating and not client_is_normal)
+        should_show = should_show or (client_is_floating and client_is_normal and not c.maximized)
+        if should_show and not c.fullscreen then
             awful.titlebar.show(c)
             c.ontop = true
         else
@@ -92,29 +97,19 @@ local handlers = { -- request::geometry for these triggers before actual redraw 
     maximized_horizontal = show_title,
 }
 
-local function show_title_and_trigger(c)
-    if show_title(c) then
-        for event in pairs(handlers) do
-            if c[event] then
-                c:emit_signal("request::geometry", event, {store_geometry = false})
-                break
-            end
-        end
-    end
-end
-
 client.connect_signal("manage", function (c, startup)
     managed_list:check(c)
 
     -- Schedule cleanup
     c:connect_signal("unmanage", function() managed_list:delete(c) end)
 
-    -- Trigger the geometry placement if the titlebar has been hidden just now
-    show_title_and_trigger(c)
+    show_title(c)
+    c:connect_signal("property::floating", show_title)
+    c:connect_signal("property::requests_no_titlebar", show_title)
 
-    c:connect_signal("property::floating", show_title_and_trigger)
+    -- To avoid flickering, hook before property::X
     c:connect_signal("request::geometry", function(client, event, args)
-        if handlers[event] then handlers[event](client, args) end
+        if handlers[event] then handlers[event](client) end
     end)
 end)
 -- //////////////////////////////////////////////////////////////////////
@@ -132,7 +127,7 @@ local function check_all_clients(t)
         screen_layout[screen] = current_layout
 
         for _,c in pairs(screen.all_clients) do
-            show_title(c, layout)
+            show_title(c, current_layout)
         end
     end
 end
