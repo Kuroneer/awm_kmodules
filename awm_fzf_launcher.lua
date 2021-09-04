@@ -6,9 +6,9 @@
     local fzf_launcher_function = require("awm_fzf_launcher")
     fzf_launcher_function()
 
-    Version: 1.0.0
+    Version: 1.0.1
     Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
-    Date: 2018.08.26
+    Date: 2021.09.05
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -30,20 +30,19 @@ local awful   = require("awful")
 local naughty = require("naughty")
 local timer   = require("gears.timer")
 
-local HEREDOCTAG = '$%$%$%$###AWMFZFLAUNCHER_HERECODTAG'
+local HEREDOCTAG = '///////////////WMFZFLAUNCHER_HERECODTAG'
 local launcher = {
     started = false,
     client = nil,
     client_pid = nil,
-    options = {
+    default_options = {
         include_clients = true,
-        launch_check_timeout = 5,
         terminal = (terminal or "urxvt") .. " -e ",
         reading_fifo_path = '/tmp/.awm_fzf_launcher.out',
         notitle = true,
-        command = 'fzf +m -1 -0 -e < <(basename --multiple $(find -L $(sed "s/:/ /g" <<< $PATH ) -type f -executable -maxdepth 1 2>/dev/null) | sort -u)',
-        command_with_clients = 'fzf +m -1 -0 -e < <( cat <<'..HEREDOCTAG.."\n",
-        command_with_clients_tail = HEREDOCTAG.."\n basename --multiple $(find -L $(sed \"s/:/ /g\" <<< $PATH ) -type f -executable -maxdepth 1 2>/dev/null) | sort -u)",
+        command = 'basename --multiple $(find -L $(sed "s/:/ /g" <<< $PATH ) -type f -executable -maxdepth 1 2>/dev/null) | fzf +m -1 -0 -e',
+        command_with_clients = '( cat <<'..HEREDOCTAG.."\n",
+        command_with_clients_tail = HEREDOCTAG.."\n basename --multiple $(find -L $(sed \"s/:/ /g\" <<< $PATH ) -type f -executable -maxdepth 1 2>/dev/null)) | fzf +m -1 -0 -e",
         width = .3,
         height = .3,
     }
@@ -80,28 +79,53 @@ function launcher:launch(program, clients)
         return
     end
 
-    local launch_time = os.time()
-    awful.spawn.with_line_callback(program, {
-        exit = function(reason, _code)
-            if reason == "exit" and os.time() - launch_time < self.options.launch_check_timeout then
-                naughty.notify{
-                    title = "AWM FZF Launcher",
-                    text = "Relaunching '"..program.."' in "..self.options.terminal
-                }
-                awful.spawn(self.options.terminal..program)
-            end
-        end
-    })
+    awful.spawn(program)
 end
 
-local function get_usable_fifo(path, continuation_callback, continuation_arg1, continuation_arg2)
+function launcher:spawn(path, file_out)
+    local flags = self.options
+    local clients = {}
+    local command = flags.terminal .. " bash -c '" ..flags.command.." > "..path.."'"
+    if flags.include_clients then
+        command = flags.terminal .. " bash -c '" ..flags.command_with_clients
+        for _, c in ipairs(client.get()) do
+            if c.name and not c.skip_taskbar then
+                local name = "> "..c.name:gsub('\'', '"') --FIXME escape '
+                clients[name] = c
+                command = command..name.."\n"
+            end
+        end
+        command = command .. flags.command_with_clients_tail.." > "..path.."'"
+    end
+    return awful.spawn(command, true,
+    function(c)
+        -- Triggers before "manage" event, but there are some client
+        -- properties that need to be set on "manage"
+        self.client = c;
+        c.skip_taskbar = true
+        c.name = "AWM FZF LAUNCHER"
+
+        -- Get output
+        local program = nil
+        awful.spawn.read_lines(file_out:read(), function(line) program = line end,
+        function() self:launch(program, clients) end, nil, true)
+    end)
+end
+
+function launcher:spawn_with_fifo()
+    if self.client_pid then
+        return
+    end
+
+    local path = self.options.reading_fifo_path
     local file = Gio.File.new_for_path(path)
     local gfileinfo = file:query_info("standard::type,access::can-read,access::can-write", Gio.FileQueryInfoFlags.NONE)
     if gfileinfo and gfileinfo:get_file_type() == "SPECIAL" and gfileinfo:get_attribute_boolean("access::can-read") and gfileinfo:get_attribute_boolean("access::can-write") then
-        return file
+        self.client_pid = self:spawn(path, file)
+        return
     end
 
-    awful.spawn.with_line_callback("mkfifo "..path, {
+    self.client_pid = awful.spawn.with_line_callback("mkfifo --mode=og-rwx "..path, {
         exit = function(reason, code)
             if code ~= 0 then
                 naughty.notify{
@@ -109,60 +133,26 @@ local function get_usable_fifo(path, continuation_callback, continuation_arg1, c
                     text = "Cannot create FIFO at "..path,
                     timeout = 0,
                 }
-            elseif continuation_callback then
-                continuation_callback(continuation_arg1, continuation_arg2)
+                self.client_pid = nil
+            elseif self.client_pid then
+                self.client_pid = self:spawn_with_fifo()
             end
         end
     })
 end
 
-function launcher:spawn(flags)
-    flags = setmetatable(flags or {}, { __index = self.options })
-
-    if not self.client_pid then
-        local file_out = get_usable_fifo(flags.reading_fifo_path, self.spawn, self, flags)
-        if not file_out then return end
-
-        local clients = {}
-        local command = flags.terminal .. " bash -c '" ..flags.command.." > "..flags.reading_fifo_path.."'"
-        if flags.include_clients then
-            --TODO Use pipe
-            command = flags.terminal .. " bash -c '" ..flags.command_with_clients
-            for _, c in ipairs(client.get()) do
-                if c.name and not c.skip_taskbar then
-                    local name = c.name:gsub('\'', '"') --FIXME escape '
-                    clients[name] = c
-                    command = command..name.."\n"
-                end
-            end
-            command = command .. flags.command_with_clients_tail.." > "..flags.reading_fifo_path.."'"
-        end
-        self.client_pid = awful.spawn(command, true,
-        function(c) -- Triggers before "manage" event
-            self.client = c;
-            c.skip_taskbar = true
-            c.name = "AWM FZF LAUNCHER"
-
-            -- Get output
-            local program = nil
-            awful.spawn.read_lines(file_out:read(), function(line) program = line end,
-            function() self:launch(program, clients) end, nil, true)
-        end)
-    end
-end
-
 -- Create the terminal display
-function launcher:init(options, flags)
+function launcher:init(options)
     if not self.has_fzf then
         self.has_fzf = type(awful.spawn("fzf")) == "number"
         if not self.has_fzf then
             return
         end
     end
+    self.options = setmetatable(options or {}, { __index = self.default_options })
 
     if not self.started then
         self.started = true
-        self.options = setmetatable(options or {}, { __index = self.options })
         client.connect_signal("manage", function(c)
             if c and c == self.client then
                 c:connect_signal("unmanage", function()
@@ -211,7 +201,7 @@ function launcher:init(options, flags)
         end)
     end
 
-    self:spawn(flags)
+    self:spawn_with_fifo()
     return true
 end
 
