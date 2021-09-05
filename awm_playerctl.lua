@@ -7,9 +7,9 @@
 
     require("awm_playerctl")
 
-    Version: 1.0.0
+    Version: 1.0.2
     Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
-    Date: 2020.01.10
+    Date: 2021.09.05
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -30,10 +30,6 @@ local awful = require("awful")
 local naughty = require("naughty")
 local timer = require("gears.timer")
 
-local unlocalize = function(command)
-    return 'bash -c "LC_MESSAGES=C '..command..'"'
-end
-
 -- State
 local state = {
     last_player = nil,
@@ -42,14 +38,13 @@ local state = {
 
 -- Scehdule state update with subscription
 do
-    local kill_subscriber = function()
+    awesome.connect_signal("exit", function()
         if state.subscriber_pid then
             local SIGTERM = 15
             awesome.kill(state.subscriber_pid, SIGTERM)
             state.subscriber_pid = nil
         end
-    end
-    awesome.connect_signal("exit", kill_subscriber)
+    end)
 
     local subscribe
     local schedule_subscribe = function()
@@ -58,11 +53,10 @@ do
     end
 
     subscribe = function()
-        kill_subscriber()
-        state.subscriber_pid = awful.spawn.with_line_callback(unlocalize('playerctl --follow status -f \\"{{playerName}} {{lc(status)}}\\"'), {
+        state.subscriber_pid = awful.spawn.with_line_callback('playerctl --follow status -f "{{playerName}} {{lc(status)}}"', {
             stdout = function(line)
                 local player, status = line:match("(%w+) (%w+)")
-                if status ~= 'stopped' then
+                if status ~= 'stopped' or not state.last_player then
                     state.last_player = player
                 end
             end,
@@ -70,16 +64,10 @@ do
         })
 
         if type(state.subscriber_pid) ~= "number" then
-            state.subscriber_pid = nil
-            return true
-        else
-            return false
+            schedule_subscribe()
         end
     end
-
-    if subscribe() then
-        schedule_subscribe()
-    end
+    subscribe()
 end
 
 timer.delayed_call(function()
