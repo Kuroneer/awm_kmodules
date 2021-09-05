@@ -71,13 +71,9 @@ do
 end
 
 timer.delayed_call(function()
-    local pending_action = false
     local create_action = function(playerctl_verb)
         return function()
-            local playerctl_command = string.format('playerctl --player %s %s', state.last_player, playerctl_verb)
-            pending_action = pending_action or type(
-                awful.spawn.with_line_callback(playerctl_command, {exit = function() pending_action = false end})
-            ) == "number"
+            awful.spawn(string.format('playerctl --player %s %s', state.last_player, playerctl_verb))
         end
     end
 
