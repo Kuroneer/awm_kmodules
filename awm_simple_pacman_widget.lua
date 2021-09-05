@@ -6,7 +6,7 @@
 
     local pacman_update = my_modules("awm_simple_pacman_widget")()
 
-    Version: 1.0.1
+    Version: 1.0.2
     Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
     Date: 2021.09.05
 
@@ -42,7 +42,7 @@ local defaults, sync_timer = {
 return function(options)
     local options, pending_action = setmetatable(options or {}, {__index = defaults}), 0
     local widget = wibox.widget{
-        markup = 'TODO1',
+        markup = '',
         align  = 'center',
         valign = 'center',
         widget = wibox.widget.textbox,
