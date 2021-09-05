@@ -7,7 +7,7 @@
 
     require("awm_playerctl")
 
-    Version: 1.0.2
+    Version: 1.0.3
     Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
     Date: 2021.09.05
 
@@ -37,6 +37,10 @@ local state = {
 }
 
 -- Scehdule state update with subscription
+local unlocalize = function(command)
+    return 'bash -c "LC_MESSAGES=C '..command..'"'
+end
+
 do
     awesome.connect_signal("exit", function()
         if state.subscriber_pid then
@@ -53,7 +57,7 @@ do
     end
 
     subscribe = function()
-        state.subscriber_pid = awful.spawn.with_line_callback('playerctl --follow status -f "{{playerName}} {{lc(status)}}"', {
+        state.subscriber_pid = awful.spawn.with_line_callback(unlocalize('playerctl --follow status -f \\"{{playerName}} {{lc(status)}}\\"'), {
             stdout = function(line)
                 local player, status = line:match("(%w+) (%w+)")
                 if status ~= 'stopped' or not state.last_player then
