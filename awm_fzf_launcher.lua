@@ -79,6 +79,10 @@ function launcher:launch(program, clients)
         return
     end
 
+    naughty.notify{
+        title = "AWM FZF Launcher",
+        text = "Launch '"..program.."'"
+    }
     awful.spawn(program)
 end
 
