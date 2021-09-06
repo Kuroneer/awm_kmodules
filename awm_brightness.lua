@@ -18,8 +18,8 @@
     along with this program.    If not, see <http://www.gnu.org/licenses/>.
 
     Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
-    Date: 2018.06.06
-    Version: 1.0.0
+    Date: 2021.09.06
+    Version: 1.0.1
 ]]
 
 local awful = require("awful")
@@ -30,10 +30,7 @@ local screen, setmetatable, math = screen, setmetatable, math
 -- AUX: Get output from command
 local getting_value = false
 local function get_value(command, finishCallback)
-    if getting_value then
-        return getting_value
-    end
-    getting_value = type(awful.spawn.easy_async(command, function(stdout, stderr, exit_reason, exit_code)
+    getting_value = getting_value or type(awful.spawn.easy_async(command, function(stdout, stderr, exit_reason, exit_code)
         getting_value = false
         finishCallback(stdout, stderr, exit_reason, exit_code)
     end)) == "number"
@@ -42,6 +39,7 @@ end
 
 local brightness = {
     target_brightness = nil,
+    acc = 0,
     brightness_step = 5,
     notification_id = {},
     notification_text = {
@@ -108,10 +106,7 @@ function brightness:change_brightness(nsteps)
             end
         end
 
-        if self.timer.started then
-            self.timer:stop()
-        end
-        self.timer:start()
+        self.timer:again()
 
     elseif not get_value("xbacklight -get",
         function(stdout, _stderr, _exit_reason, exit_code)
@@ -119,15 +114,18 @@ function brightness:change_brightness(nsteps)
                 self.target_brightness = stdout and tonumber(stdout)
                 if self.target_brightness then
                     self.target_brightness = self.target_brightness +.5
-                    self:change_brightness(nsteps)
+                    self:change_brightness(nsteps + self.acc)
+                    self.acc = 0
                 else
-                    error("Error in stdout from 'xbacklight -get'")
+                    error("Error in stdout from 'xbacklight -get':"..stdout)
                 end
             else
                 error("Error code from 'xbacklight -get': "..exit_code)
             end
         end) then
         error("Error spawning 'xbacklight -get'")
+    else
+        self.acc = self.acc + nsteps
     end
 end
 
