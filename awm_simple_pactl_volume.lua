@@ -72,7 +72,7 @@ local function async_run_generator(command, callback)
 end
 
 local unlocalize = function(command)
-    return 'bash -c "LC_MESSAGES=C '..command..'"'
+    return 'bash -c "LC_ALL=C '..command..'"'
 end
 
 -- State

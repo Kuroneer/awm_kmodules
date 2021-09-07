@@ -38,7 +38,7 @@ local state = {
 
 -- Scehdule state update with subscription
 local unlocalize = function(command)
-    return 'bash -c "LC_MESSAGES=C '..command..'"'
+    return 'bash -c "LC_ALL=C '..command..'"'
 end
 
 do
