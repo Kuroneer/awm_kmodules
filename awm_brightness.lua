@@ -18,8 +18,8 @@
     along with this program.    If not, see <http://www.gnu.org/licenses/>.
 
     Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
-    Date: 2021.09.06
-    Version: 1.0.1
+    Date: 2021.09.08
+    Version: 1.1.0
 ]]
 
 local awful = require("awful")
@@ -27,19 +27,9 @@ local naughty = require("naughty")
 local gears = require("gears")
 local screen, setmetatable, math = screen, setmetatable, math
 
--- AUX: Get output from command
-local getting_value = false
-local function get_value(command, finishCallback)
-    getting_value = getting_value or type(awful.spawn.easy_async(command, function(stdout, stderr, exit_reason, exit_code)
-        getting_value = false
-        finishCallback(stdout, stderr, exit_reason, exit_code)
-    end)) == "number"
-    return getting_value
-end
-
 local brightness = {
-    target_brightness = nil,
-    acc = 0,
+    current_brightness = nil,
+    acc_steps = 0,
     brightness_step = 5,
     notification_id = {},
     notification_text = {
@@ -74,15 +64,49 @@ local brightness = {
 brightness.timer = gears.timer{
     timeout = brightness.notification_defaults.timeout,
     single_shot = true,
-    callback = function() brightness.target_brightness = nil end,
+    callback = function()
+        brightness.current_brightness = nil
+        brightness.acc_steps = 0
+    end,
 }
 
+local update_ongoing = false
+local next_value
+local set_brigthness
+set_brigthness = function(value)
+    if not update_ongoing then
+        update_ongoing = type(awful.spawn.easy_async(string.format("xbacklight =%3d", value), function()
+            update_ongoing = false
+            if next_value then
+                set_brigthness(next_value)
+                next_value =  nil
+            end
+        end)) == "number"
+    else
+        next_value = value
+    end
+end
+
+local getting_value = false
+local function get_brightness(finishCallback)
+    getting_value = getting_value or type(awful.spawn.easy_async("xbacklight -get", function(stdout, stderr, exit_reason, exit_code)
+        getting_value = false
+        finishCallback(stdout, exit_code)
+    end)) == "number"
+    return getting_value
+end
+
 function brightness:change_brightness(nsteps)
-    local value = self.target_brightness
+    self.acc_steps = self.acc_steps + nsteps
+
+    local value = self.current_brightness
     if value then
-        value = math.floor(math.max(math.min(value + nsteps * self.brightness_step, 100), self.brightness_step))
-        awful.util.spawn(string.format("xbacklight =%3d", value))
-        self.target_brightness = value
+        local min_steps = 1 - value / self.brightness_step
+        local max_steps = (100 - value) / self.brightness_step
+        self.acc_steps = math.max(min_steps, math.min(max_steps, self.acc_steps))
+
+        value = math.floor(value + self.acc_steps * self.brightness_step)
+        set_brigthness(value)
 
         local num_symbols = math.floor(100/self.brightness_step)
         local active_symbols = math.floor(value/self.brightness_step)
@@ -105,17 +129,14 @@ function brightness:change_brightness(nsteps)
                 },{__index = self.notification_defaults})).id
             end
         end
-
         self.timer:again()
 
-    elseif not get_value("xbacklight -get",
-        function(stdout, _stderr, _exit_reason, exit_code)
+    elseif not get_brightness(function(stdout, exit_code)
             if exit_code == 0 then
-                self.target_brightness = stdout and tonumber(stdout)
-                if self.target_brightness then
-                    self.target_brightness = self.target_brightness +.5
-                    self:change_brightness(nsteps + self.acc)
-                    self.acc = 0
+                self.current_brightness = stdout and tonumber(stdout)
+                if self.current_brightness then
+                    self.current_brightness = math.floor(self.current_brightness +.5)
+                    self:change_brightness(0)
                 else
                     error("Error in stdout from 'xbacklight -get':"..stdout)
                 end
@@ -124,8 +145,6 @@ function brightness:change_brightness(nsteps)
             end
         end) then
         error("Error spawning 'xbacklight -get'")
-    else
-        self.acc = self.acc + nsteps
     end
 end
 
