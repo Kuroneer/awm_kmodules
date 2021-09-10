@@ -7,7 +7,7 @@
 
     local volume_widget = require("awm_simple_pactl_volume")
 
-    Version: 1.0.1
+    Version: 1.0.2
     Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
     Date: 2021.09.10
 
@@ -104,7 +104,7 @@ local process_sinks = async_run_generator(unlocalize("pactl list sinks"), functi
                     index = sink_index,
                     disabled = false,
                     description = nil,
-                    state_running = false,
+                    state_running = 0,
                     volume = 0,
                     muted = false,
                     ports = {},
@@ -115,7 +115,14 @@ local process_sinks = async_run_generator(unlocalize("pactl list sinks"), functi
                 current_sinks[sink_index] = true
             end
         elseif line:match("State: ") then
-            sink.state_running = line:match("State: ([^\r\n]+)") == "RUNNING"
+            local running_state = line:match("State: ([^\r\n]+)")
+            if running_state == "RUNNING" then
+                sink.state_running = 2
+            elseif running_state == "IDLE" then
+                sink.state_running = 1
+            else
+                sink.state_running = 0
+            end
         elseif line:match("Description: ") then
             sink.description = sink.description or line:match("Description: ([^\r\n]+)")
         elseif line:match("Name: ") then
@@ -157,7 +164,7 @@ local process_sinks = async_run_generator(unlocalize("pactl list sinks"), functi
             sink_count = sink_count +1
             if
                 (not best_sink) or
-                (not best_sink.state_running and sink.state_running) or
+                (best_sink.state_running < sink.state_running) or
                 ((best_sink.state_running == sink.state_running) and best_sink.ports[best_sink.active_port].priority > sink.ports[sink.active_port].priority)
                 then
                     best_sink = sink
