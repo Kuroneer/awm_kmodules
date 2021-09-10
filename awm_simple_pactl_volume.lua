@@ -7,9 +7,9 @@
 
     local volume_widget = require("awm_simple_pactl_volume")
 
-    Version: 1.0.0
+    Version: 1.0.1
     Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
-    Date: 2018.08.06
+    Date: 2021.09.10
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -38,35 +38,25 @@ local commands = {
 }
 
 -- Utils
-local pending_action = false
-local pending_call = false
+local ongoing_action = false
+local scheduled_action = false
 local function async_run_generator(command, callback)
     local call
     call = function()
-        if pending_action then
-            pending_call = true
-            return false
+        if ongoing_action then
+            scheduled_action = true
+            return
         end
 
-        pending_action = true
-        pending_call = false
-        if type(awful.spawn.easy_async(command, function(stdout)
-            pending_action = false
-            if pending_call then
+        scheduled_action = false
+        ongoing_action = type(awful.spawn.easy_async(command, function(stdout)
+            ongoing_action = false
+            if scheduled_action then
                 call()
             else
                 callback(stdout)
             end
-        end)) ~= "number" then
-            pending_action = false
-            if pending_call then
-                call()
-            else
-                callback(nil)
-            end
-            return false
-        end
-        return true
+        end)) == "number"
     end
     return call
 end
@@ -102,7 +92,7 @@ state.widget = wibox.widget{
 
 -- Update state information
 local process_sinks = async_run_generator(unlocalize("pactl list sinks"), function(stdout)
-    sinks = state.sinks
+    local sinks = state.sinks
     local current_sinks = {}
     local sink = {}
 
@@ -140,8 +130,8 @@ local process_sinks = async_run_generator(unlocalize("pactl list sinks"), functi
                 sum = sum + vol
             end
             sink.volume = count > 0 and sum/count or 0
-        elseif line:match("%(priority: %d+.*%)$") then
-            local port_key, port_name, port_priority = line:match("([^%s]+): ([^%(]+) %(priority: (%d+).*%)")
+        elseif line:match("priority: %d+.*%)$") then
+            local port_key, port_name, port_priority = line:match("([^%s]+): ([^%(]+) %(.*priority: (%d+).*%)")
             sink.ports[port_key] = {
                 key = port_key,
                 name = port_name,
@@ -168,7 +158,7 @@ local process_sinks = async_run_generator(unlocalize("pactl list sinks"), functi
             if
                 (not best_sink) or
                 (not best_sink.state_running and sink.state_running) or
-                (best_sink.ports[best_sink.active_port].priority > sink.ports[sink.active_port].priority)
+                ((best_sink.state_running == sink.state_running) and best_sink.ports[best_sink.active_port].priority > sink.ports[sink.active_port].priority)
                 then
                     best_sink = sink
             end
@@ -195,10 +185,9 @@ local process_sinks = async_run_generator(unlocalize("pactl list sinks"), functi
                 }, { __index = state.notification_defaults})).id
             end
         end
-
-        state.current_sink = best_sink
-        state.current_port = best_sink.active_port
     end
+    state.current_sink = best_sink
+    state.current_port = best_sink and best_sink.active_port or nil
 
     -- Update widget with current_sink info
     if state.current_sink then
@@ -207,30 +196,27 @@ local process_sinks = async_run_generator(unlocalize("pactl list sinks"), functi
         else
             state.text_widget:set_text(string.format("%s ", best_sink.volume > 0 and math.floor(best_sink.volume) or "X"))
         end
+    else
+        state.text_widget:set_text("? ")
     end
 end)
 
 -- Scehdule state update with pactl subscribe
 do
-    local pactl_subscribe
+    local pactl_resubscribe
     local schedule_restart = function()
         state.pactl_subscribe_pid = nil
-        timer.start_new(60, pactl_subscribe)
-    end
-    pactl_subscribe = function()
-        if state.pactl_subscribe_pid then
-            local SIGTERM = 15
-            awesome.kill(state.pactl_subscribe_pid, SIGTERM)
+        if pactl_resubscribe() then
+            timer.start_new(60, pactl_resubscribe)
         end
-
+    end
+    pactl_resubscribe = function()
         state.pactl_subscribe_pid = awful.spawn.with_line_callback(unlocalize("pactl --client-name=awesomewm-listener subscribe"), {
             stdout = function(line)
                 local operation, sink_index = line:match("Event '(%w+)' on sink #(%d+)")
                 if operation then
                     if operation == "remove" then -- For race conditions
                         state.sinks[sink_index].disabled = true
-                    elseif operation == "new" then
-                        state.sinks[sink_index].disabled = false
                     end
                     process_sinks()
                 end
@@ -239,16 +225,13 @@ do
         })
 
         if type(state.pactl_subscribe_pid) ~= "number" then
-            state.pactl_subscribe_pid = nil
             return true
         else
             return false
         end
     end
 
-    if pactl_subscribe() then
-        schedule_restart()
-    end
+    schedule_restart()
 
     awesome.connect_signal("exit", function()
         if state.pactl_subscribe_pid then
