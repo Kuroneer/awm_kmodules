@@ -231,6 +231,7 @@ function battery_widget:update_popup_notification()
         self.popup_notification = naughty.notify({
             text = text,
             timeout = 0,
+            ignore_suspend = true,
             replaces_id = self.popup_notification,
         }).id
     end

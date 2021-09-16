@@ -125,6 +125,7 @@ function brightness:change_brightness(nsteps)
                 self.notification_id[s.index] = naughty.notify(setmetatable({
                     text = text,
                     screen = s,
+                    ignore_suspend = true,
                     replaces_id = self.notification_id[s.index],
                 },{__index = self.notification_defaults})).id
             end
