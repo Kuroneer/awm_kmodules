@@ -131,15 +131,15 @@ function launcher:spawn_with_fifo()
 
     self.client_pid = awful.spawn.with_line_callback("mkfifo --mode=og-rwx "..path, {
         exit = function(reason, code)
+            self.client_pid = nil
             if code ~= 0 then
                 naughty.notify{
                     title = "Error while launching "..module,
                     text = "Cannot create FIFO at "..path,
                     timeout = 0,
                 }
-                self.client_pid = nil
-            elseif self.client_pid then
-                self.client_pid = self:spawn_with_fifo()
+            else
+                self:spawn_with_fifo()
             end
         end
     })
