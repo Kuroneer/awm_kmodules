@@ -17,8 +17,17 @@
 
     require("awm_dbusxrandr")()
 
+    You can also customize the available configurations by populating
+      .trigger_command_path = nil, -- Custom script path executed on dbus event
+      .trigger_function = nil, -- Custom setup in lua on dbus event
+      .get_custom_configurations = nil, -- Custom setup list on call
+    see code to see the usage
 
-    Version: 1.1.0
+    You can list the options one by one by disabling show_list:
+      .show_list = false
+
+
+    Version: 1.1.1
     Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
     Date: 2021.09.20
 
@@ -36,11 +45,6 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ]]
 
---[[
-    TODO list:
-        - Add option to display all configurations and iterate over them
-]]
-
 local awful = require("awful")
 local beautiful = require("beautiful")
 local gears = require("gears")
@@ -52,6 +56,7 @@ local xrandr = {
     trigger_command_path = nil,
     trigger_function = nil,
     get_custom_configurations = nil,
+    show_list = true,
 
     setup_options = nil,
     setup_options_index = nil,
@@ -158,7 +163,7 @@ do
     end
 end
 
-function xrandr:notify(arg)
+local function make_label(arg)
     local label
     if type(arg) == "string" then
         label = arg
@@ -170,7 +175,11 @@ function xrandr:notify(arg)
             label = label..'<span weight="bold">'..output..'</span>'
         end
     end
+    return label
+end
 
+function xrandr:notify(arg)
+    local label = make_label(arg)
     for s in screen do
         local text = '<span weight="bold">⎚</span> '..next(s.outputs)..': '..label
         local notification = naughty.getById(self.notification_id[s.index])
@@ -189,7 +198,26 @@ function xrandr:notify(arg)
 end
 
 function xrandr:notify_setup_options()
-    if self.setup_options_index == 0 then
+    if self.show_list then
+        local options = {}
+        for i, v in ipairs(self.setup_options) do
+            table.insert(options, make_label(v))
+        end
+        options[0] = "Keep current configuration"
+
+        for k, v in pairs(options) do
+            if k == self.setup_options_index then
+                options[k] = "> "..v
+            else
+                options[k] = "  "..v
+            end
+        end
+        local arg = "\n"..options[0]
+        for i, v in ipairs(options) do
+            arg = arg .. "\n" .. v
+        end
+        self:notify(arg)
+    elseif self.setup_options_index == 0 then
         self:notify("Keep current configuration")
     else
         self:notify(self.setup_options[self.setup_options_index])
