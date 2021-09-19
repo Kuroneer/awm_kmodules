@@ -18,9 +18,9 @@
     require("awm_dbusxrandr")()
 
 
-    Version: 1.0.0
+    Version: 1.1.0
     Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
-    Date: 2018.06.06
+    Date: 2021.09.20
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -39,7 +39,6 @@
 --[[
     TODO list:
         - Add option to display all configurations and iterate over them
-        - Add option to filter configurations in the iteration
 ]]
 
 local awful = require("awful")
@@ -51,11 +50,14 @@ local screen = screen
 local xrandr = {
     setup_direction = "horizontal",
     trigger_command_path = nil,
+    trigger_function = nil,
+    get_custom_configurations = nil,
+
+    setup_options = nil,
+    setup_options_index = nil,
+    building_setup_options = false,
 
     screens_connected = {},
-    screens_setup = {},
-    screens_to_be_removed = {},
-    screens_setup_limit = 0,
 
     notification_id = {},
     notification_defaults = {
@@ -66,48 +68,82 @@ local xrandr = {
         font = beautiful.font,
         ignore_suspend = true,
     },
-
-    coroutine = nil,
-    buildingCoroutine = false,
-    action = nil,
 }
 
-function xrandr:update_screens()
-    local position = self.setup_direction == "horizontal" and " --right-of " or " --below "
-    local cmd = "xrandr"
-    local active_outputs = {}
-
-    for i, output in ipairs(self.screens_setup) do
-        if i > self.screens_setup_limit then
-            break
+xrandr.set_screens_cmd = {}
+xrandr.set_screens_on = false
+function xrandr:set_screens(cmd, add)
+    if not cmd then
+        return
+    end
+    if self.set_screens_on then
+        if not add then
+            self.set_screens_cmd = {}
         end
+        table.insert(self.set_screens_cmd, cmd)
+        return
+    end
+    self.set_screens_on = self.set_screens_on or type(awful.spawn.easy_async("xrandr "..cmd, function()
+        cmd = table.remove(self.set_screens_cmd, 1)
+        self.set_screens_on = false
+        self:set_screens(cmd)
+    end)) == "number"
+end
 
-        cmd = cmd.." --output "..output.." --auto"
-        if i > 1 then
-            cmd = cmd..position..self.screens_setup[i-1]
-        end
-        active_outputs[output] = true
+function xrandr:update_screens(screens_setup)
+    if not screens_setup then
+        return
     end
 
-    for output in pairs(self.screens_connected) do
-        if not active_outputs[output] then
-            cmd = cmd.." --output "..output.." --off"
+    local cmd = nil
+    if type(screens_setup) == "string" then
+        cmd = screens_setup
+    elseif screens_setup.cmd then
+        cmd = screens_setup.cmd
+    else
+        cmd = ""
+        local position = self.setup_direction == "horizontal" and " --right-of " or " --below "
+        local active_outputs = {}
+
+        for i, output in ipairs(screens_setup) do
+            cmd = cmd.." --output "..output.." --auto"
+            if i > 1 then
+                cmd = cmd..position..screens_setup[i-1]
+            end
+            active_outputs[output] = true
+        end
+
+        for output in pairs(self.screens_connected) do
+            if not active_outputs[output] then
+                cmd = " --output "..output.." --off"..cmd
+            end
         end
     end
 
-    for output in pairs(self.screens_to_be_removed) do
-        cmd = cmd.." --output "..output.." --off"
-    end
-    self.screens_to_be_removed = {}
+    self:set_screens(cmd)
+end
 
-    awful.spawn(cmd)
-    self.coroutine = nil
+function xrandr:clear_notifications()
+    for s in screen do
+        local notification = naughty.getById(self.notification_id[s.index])
+        if notification then
+            naughty.destroy(notification)
+        end
+    end
+    self.setup_options = nil
+    self.setup_options_index = nil
 end
 
 xrandr.timer = gears.timer{
     timeout = xrandr.notification_defaults.timeout,
     single_shot = true,
-    callback = function() xrandr:update_screens() end,
+    callback = function()
+        if xrandr.setup_options_index ~= 0 then
+            xrandr:update_screens(xrandr.setup_options[xrandr.setup_options_index])
+        end
+        xrandr:clear_notifications()
+        return false
+    end,
 }
 
 do
@@ -122,12 +158,14 @@ do
     end
 end
 
-function xrandr:notify(label)
-    if not label then
-        for i, output in ipairs(self.screens_setup) do
-            if i > self.screens_setup_limit then
-                break
-            end
+function xrandr:notify(arg)
+    local label
+    if type(arg) == "string" then
+        label = arg
+    elseif arg.name then
+        label = arg.name
+    else
+        for i, output in ipairs(arg) do
             label = label and label.." + " or ""
             label = label..'<span weight="bold">'..output..'</span>'
         end
@@ -139,106 +177,124 @@ function xrandr:notify(label)
 
         if notification then
             naughty.replace_text(notification, nil, text)
-            naughty.reset_timeout(notification, 0)
         else
             self.notification_id[s.index] = naughty.notify(setmetatable({
                 text = text,
                 screen = s,
+                timeout = 0,
                 replaces_id = self.notification_id[s.index],
             }, { __index = self.notification_defaults})).id
         end
     end
 end
 
-function xrandr:get_connected_screens(callback)
-    return type(awful.spawn.easy_async("xrandr -q", function(stdout, stderr, exitReason, exitCode)
-        local previous_setup = xrandr.screens_setup
-        local all_displays = nil
+function xrandr:notify_setup_options()
+    if self.setup_options_index == 0 then
+        self:notify("Keep current configuration")
+    else
+        self:notify(self.setup_options[self.setup_options_index])
+    end
+    self.timer:again()
+end
+
+-- screens_connected : display -> boolean
+-- screens_setup :     i++ -> display (sorted, next to apply)
+xrandr.get_connected_screens_callbacks = {}
+function xrandr:get_connected_screens(callback, silent)
+    if #self.get_connected_screens_callbacks > 0 then
+        table.insert(self.get_connected_screens_callbacks, callback)
+        return true
+    end
+
+    if type(awful.spawn.easy_async("xrandr -q", function(stdout, _stderr, _exitReason, exitCode)
+        local screens_setup = {}
+        local screens_connected = {}
         if exitCode == 0 then
             local current_setup = {}
-            self.screens_connected = {}
-            all_displays = {}
-            for display, rest in stdout:gmatch("([%w-]+) connected ([^\r\n]+)") do
-                self.screens_connected[display] = true
-                table.insert(all_displays, display)
+            for display, connected, rest in stdout:gmatch("([%w-]+) ([%w]+) ([^\r\n]+)") do
+                connected = connected == "connected"
 
                 local offset_w, offset_h = rest:match(".*%d+x%d+%+(%d+)%+(%d+) .*")
                 if offset_h and offset_w then
+                    screens_connected[display] = connected
                     table.insert(current_setup, {name = display, value = tonumber(offset_h)*100000+tonumber(offset_w)})
+                elseif connected then
+                    screens_connected[display] = connected
                 end
             end
             table.sort(current_setup, function(a,b) return a.value < b.value end)
-            xrandr.screens_setup = {}
             for _,v in ipairs(current_setup) do
-                table.insert(xrandr.screens_setup, v.name)
+                table.insert(screens_setup, v.name)
             end
-            xrandr.screens_setup_limit = #xrandr.screens_setup
         end
+        for _, cb in ipairs(self.get_connected_screens_callbacks) do
+            cb(screens_connected, screens_setup)
+        end
+        self.get_connected_screens_callbacks = {}
+    end)) == "number" then
+    table.insert(self.get_connected_screens_callbacks, callback)
 
-        if callback then
-            callback(all_displays, previous_setup)
-        end
-    end)) == "number"
+    if not silent then
+        self:notify("Xrandr in progress")
+    end
+    return true
+end
 end
 
-
 if xrandr_nonexhaustive_connected_screen_initialization then
-    xrandr.screens_setup_limit = 0
     for s in screen do
         local output = next(s.outputs)
         xrandr.screens_connected[output] = true
-        xrandr.screens_setup_limit = xrandr.screens_setup_limit +1
-        table.insert(xrandr.screens_setup, output)
     end
 else
-    xrandr:get_connected_screens()
+    xrandr:get_connected_screens(function(screens_connected)
+        xrandr.screens_connected = screens_connected
+    end, true)
 end
 
-function xrandr:permgen(start)
-    local a = self.screens_setup
-    start = start or 1
-    if start < #a then
-        self.screens_setup_limit = start
-        coroutine.yield(a, start)
-        self:permgen(start+1)
-
-        for i=start+1,#a do
-            a[start], a[i] = a[i], a[start]
-            self.screens_setup_limit = start
-            coroutine.yield(a, start)
-            self:permgen(start+1)
-            a[start], a[i] = a[i], a[start]
+local function permgen(screens, start, cb)
+    cb(screens, start)
+    if start < #screens then
+        permgen(screens, start+1, cb)
+        for i=start+1,#screens do
+            screens[start], screens[i] = screens[i], screens[start]
+            cb(screens, start)
+            permgen(screens, start+1, cb)
+            screens[start], screens[i] = screens[i], screens[start]
         end
-    else
-        self.screens_setup_limit = start
-        coroutine.yield(a, start)
     end
 end
 
 function xrandr:xrandr()
-    if self.timer.started then
-        self.timer:stop()
-    end
-
-    if not self.coroutine then
-        if self.buildingCoroutine then
-            return
-        end
-        self.buildingCoroutine = self:get_connected_screens(function(all_displays)
-            self.buildingCoroutine = false
-            self.screens_setup = all_displays
-            self.coroutine = coroutine.wrap(function() self:permgen() end)
-            self:xrandr()
-        end)
-        if not self.buildingCoroutine then
-            error("Error spawning xrandr")
-        end
-    elseif self.coroutine() then
-        self:notify()
-        self.timer:start()
+    if self.setup_options then
+        self.setup_options_index = (self.setup_options_index + 1) % (#self.setup_options + 1)
+        self:notify_setup_options()
     else
-        self:notify("Keep the current configuration")
-        self.coroutine = nil
+        self.building_setup_options = self.building_setup_options or self:get_connected_screens(function(screens_connected)
+            local screens = {}
+            for k, v in pairs(screens_connected) do
+                if v then
+                    table.insert(screens, k)
+                end
+            end
+            self.building_setup_options = false
+            self.setup_options_index = 0
+            self.setup_options = {}
+            self.screens_connected = screens_connected
+
+            if self.get_custom_configurations then
+                self.get_custom_configurations(screens, self.setup_options)
+            elseif #screens > 0 then
+                permgen(screens, 1, function(screens, limit)
+                    local setup = {}
+                    for i = 1,limit do
+                        table.insert(setup, screens[i])
+                    end
+                    table.insert(self.setup_options, setup)
+                end)
+            end
+            self:notify_setup_options()
+        end) or error("Error spawning xrandr")
     end
 end
 
@@ -259,72 +315,95 @@ dbus.connect_signal(dbus_interface, function(args)
         if xrandr.timer.started then
             xrandr.timer:stop()
         end
-        xrandr.coroutine = nil
+        xrandr:clear_notifications()
 
-        local known_connected_screens = xrandr.screens_connected
-        if not xrandr:get_connected_screens(function(displays)
-
-            if xrandr.trigger_command_path then
-                awful.spawn.with_shell(xrandr.trigger_command_path .. ' ' .. table.concat(displays or {}, ','))
+        if not xrandr:get_connected_screens(function(screens_connected, screens_setup)
+            if xrandr.trigger_command_path or xrandr.trigger_function then
+                xrandr.screens_connected = screens_connected
+                local screens = {}
+                for k, v in pairs(screens_connected) do
+                    if v then
+                        table.insert(screens, k)
+                    end
+                end
+                if xrandr.trigger_command_path then
+                    awful.spawn.with_shell(xrandr.trigger_command_path .. ' ' .. table.concat(screens, ','))
+                elseif xrandr.trigger_function then
+                    xrandr:update_screens(xrandr.trigger_function(screens))
+                end
                 return
             end
 
-            local current_displays = xrandr.screens_connected
-            local setup_changed = false
+            local known_connected_screens = xrandr.screens_connected
+            local setup_changes = {}
 
             -- Always add new displays to the setup
-            for new_display in pairs(current_displays) do
-                if not known_connected_screens[new_display] then
+            for new_display, new_display_connected in pairs(screens_connected) do
+                if new_display_connected and not known_connected_screens[new_display] then
                     local in_setup = false
-                    for _, display_in_setup in pairs(xrandr.screens_setup) do
+                    for _, display_in_setup in pairs(screens_setup) do
                         if display_in_setup == new_display then
                             in_setup = true
                             break
                         end
                     end
                     if not in_setup then
-                        setup_changed = true
-                        -- print("Must add to setup", new_display)
-                        xrandr.screens_setup_limit = xrandr.screens_setup_limit +1
-                        table.insert(xrandr.screens_setup, xrandr.screens_setup_limit, new_display)
+                        setup_changes[new_display] = true
                     end
                 end
             end
 
             -- Always remove disconnected displays from the setup
-            for old_display in pairs(known_connected_screens) do
-                if not current_displays[old_display] then
-                    -- Added to ephemeral to have them disabled in xrandr command:
-                    setup_changed = true
-                    xrandr.screens_to_be_removed[old_display] = true
-                    -- print("Must remove from known", old_display)
-                    -- Must remove screen
-                    for i=#xrandr.screens_setup,1,-1 do
-                        if xrandr.screens_setup[i] == old_display then
-                            -- print("Must remove from setup", old_display)
-                            table.remove(xrandr.screens_setup, i)
-                            if i <= xrandr.screens_setup_limit then
-                                -- print("Must remove from active", old_display)
-                                xrandr.screens_setup_limit = xrandr.screens_setup_limit -1
-                            end
-                        end
+            local to_remove_count = 0
+            for new_display, new_display_connected in pairs(screens_connected) do
+                if not new_display_connected then
+                    setup_changes[new_display] = false
+                    to_remove_count = to_remove_count + 1
+                end
+            end
+
+            xrandr.screens_connected = screens_connected
+
+            -- Try to always have at least one display
+            if ((#screens_setup) - to_remove_count) == 0 then
+                for k, v in pairs(screens_connected) do
+                    if v then
+                        setup_changes[k] = true
+                        break
                     end
                 end
             end
 
-            -- Always have at least one display
-            if xrandr.screens_setup_limit < 1 then
-                local default_display = next(current_displays)
-                if default_display then
-                    setup_changed = true
-                    xrandr.screens_setup = {default_display}
-                    xrandr.screens_setup_limit = 1
-                end
-            end
-
             -- Update it!
-            if setup_changed then
-                xrandr:update_screens()
+            if next(setup_changes) ~= nil then
+                local position = xrandr.setup_direction == "horizontal" and " --right-of " or " --below "
+                local cmd = ""
+                local last_on = nil
+
+                while true do
+                    local last_in_setup = table.remove(screens_setup)
+                    if not last_in_setup then
+                        break
+                    end
+                    if screens_connected[last_in_setup] then
+                        last_on = last_in_setup
+                        break
+                    end
+                end
+
+                for output, v in pairs(setup_changes) do
+                    if v then
+                        cmd = cmd.." --output "..output.." --auto"
+                        if last_on then
+                            cmd = cmd..position..last_on
+                        end
+                        last_on = output
+                    else
+                        cmd = cmd.." --output "..output.." --off"
+                    end
+                end
+                xrandr:set_screens(cmd, true)
+                xrandr:clear_notifications()
             end
         end) then error("Error spawning xrandr") end
     end
