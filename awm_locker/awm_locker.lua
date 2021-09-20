@@ -6,9 +6,12 @@
 
     require("awm_locker")("slock")
 
+
     Version: 1.0.0
     Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
     Date: 2021.09.20
+
+    Copyright (C) <2021> Jose Maria Perez Ramos
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by

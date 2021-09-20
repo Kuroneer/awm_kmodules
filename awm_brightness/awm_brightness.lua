@@ -2,7 +2,19 @@
     AWM Brightness: A simple module for AwesomeWM 4 to handle brightness with
     xbacklight, reporting the value with a highly customizable notification
 
-    Copyright (C) <2018> Jose Maria Perez Ramos
+    To use it:
+
+    local awm_brightness = require("awm_brightness")
+
+    You can modify awm_brightness fields, or call it with some value to change
+    the brightness
+
+
+    Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
+    Date: 2021.09.08
+    Version: 1.1.0
+
+    Copyright (C) <2018-2021> Jose Maria Perez Ramos
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -16,10 +28,6 @@
 
     You should have received a copy of the GNU General Public License
     along with this program.    If not, see <http://www.gnu.org/licenses/>.
-
-    Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
-    Date: 2021.09.08
-    Version: 1.1.0
 ]]
 
 local awful = require("awful")

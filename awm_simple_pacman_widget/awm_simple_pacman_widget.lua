@@ -4,11 +4,14 @@
 
     To use it:
 
-    local pacman_update = my_modules("awm_simple_pacman_widget")()
+    local pacman_update = my_modules("awm_simple_pacman_widget")
+    `
 
     Version: 1.0.2
     Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
     Date: 2021.09.05
+
+    Copyright (C) <2018-2021> Jose Maria Perez Ramos
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by

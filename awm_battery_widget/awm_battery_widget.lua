@@ -6,9 +6,12 @@
 
     local battery_widget = require("awm_battery_widget")
 
-    Version: 1.1.1
+
+    Version: 1.1.2
     Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
-    Date: 2020.04.18
+    Date: 2021.09.16
+
+    Copyright (C) <2018-2020> Jose Maria Perez Ramos
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by

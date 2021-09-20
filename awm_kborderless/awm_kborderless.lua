@@ -4,9 +4,19 @@
     when that client is the only visible one)
 
     You can provide callbacks to this module so it won't change anything
-    about a client if it returns true for on its manage signal
+    about a client if it returns true for it on its manage signal
 
-    Copyright (C) <2018> Jose Maria Perez Ramos
+    To use it:
+
+    local awm_kborderless = require("awm_kborderless")
+    awm_kborderless(ignore_client_callback)
+
+
+    Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
+    Date: 2021.08.23
+    Version: 2.0.1
+
+    Copyright (C) <2018-2021> Jose Maria Perez Ramos
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,10 +30,6 @@
 
     You should have received a copy of the GNU General Public License
     along with this program.    If not, see <http://www.gnu.org/licenses/>.
-
-    Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
-    Date: 2021.08.23
-    Version: 2.0.1
 ]]
 
 local awful = require("awful")

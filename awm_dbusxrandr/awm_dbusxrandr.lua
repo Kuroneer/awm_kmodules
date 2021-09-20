@@ -18,10 +18,11 @@
     require("awm_dbusxrandr")()
 
     You can also customize the available configurations by populating
+      .setup_direction = "horizontal"
       .trigger_command_path = nil, -- Custom script path executed on dbus event
       .trigger_function = nil, -- Custom setup in lua on dbus event
       .get_custom_configurations = nil, -- Custom setup list on call
-    see code to see the usage
+    see code to check the usage
 
     You can list the options one by one by disabling show_list:
       .show_list = false
@@ -30,6 +31,8 @@
     Version: 1.1.1
     Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
     Date: 2021.09.20
+
+    Copyright (C) <2018-2021> Jose Maria Perez Ramos
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by

@@ -1,7 +1,8 @@
 # AWM Kmodules
 
-**AWM Kmodules** is a group of small modules for [AwesomeWM 4](https://awesomewm.org/).
+**AWM Kmodules** is a collection of small modules for [AwesomeWM 4](https://awesomewm.org/).
 These modules can be loaded individually.
+
 
 ## Getting Started
 
@@ -10,7 +11,7 @@ require it in your rc.lua with `require("awm_kmodules")`
 Each module can be loaded individually, the return value when loading the module
 is the return value of the `require(module)` function:
 
-```
+```lua
 local my_modules = require("awm_kmodules")
 my_modules("awm_brightness") -- Brightness
 my_modules("awm_kborderless") -- Remove borders
@@ -18,6 +19,7 @@ local focus_gradient_border_fun = my_modules("awm_focus_gradient_border")
 ```
 
 For an explaination of the different modules, continue reading.
+
 
 # AWM Brightness
 
@@ -27,7 +29,7 @@ reporting the value with a highly customizable notification.
 The default values for a notification like  
 ![alt text](awm_brightness/awm_brightness_notification.png "Example notification")  
 are:
-```
+```lua
 local brightness = require("awm_brightness") -- If awm_brightness.lua is directly in the config dir
 local brightness = require("awm_kmodules")("awm_brightness")
 
@@ -43,10 +45,10 @@ brightness.notification_defaults = {
     border_width = 1,
     ignore_suspend = true,
 }
-
 ```
 
 (This module automatically hooks to the XF86MonBrightness* keys)
+
 
 # AWM DBusXrandr
 
@@ -66,7 +68,7 @@ KERNEL=="card[0-9]*", SUBSYSTEM=="drm", RUN+="/usr/bin/dbus-send --system --type
 
 You can iterate over the configurations by calling the value returned
 when requiring this module:
-```
+```lua
 local xrandr_setup_iter = require("awm_dbusxrandr") -- If awm_dbusxrandr.lua is directly in the config dir
 local xrandr_setup_iter = require("awm_kmodules")("awm_dbusxrandr")
 
@@ -82,6 +84,9 @@ xrand_setup_iter.trigger_command_path = "~/.screen_layout_changed"
 This path will be called with the connected screens as an argument
 (comma-separated)
 
+You have some more config options, please check the first lines of the
+[file](awm_dbusxrandr/awm_dbusxrandr.lua)
+
 
 # AWM Focus Gradient Border
 
@@ -91,12 +96,11 @@ You can see the module in action in this [video](awm_focus_gradient_border/awm_f
 
 You can customize it with values provided to the function returned by the
 require:
-```
+```lua
 local focus_gradient_border_fun = require("awm_focus_gradient_border") -- If awm_focus_gradient_border.lua is directly in the config dir
 local focus_gradient_border_fun = require("awm_kmodules")("awm_focus_gradient_border")
-
 ```
-```
+```lua
 -- OPTION 1:
 -- Focus starts with color border_focus but fades into border_normal
 -- Fading stays, but faster, when unfocused
@@ -105,7 +109,7 @@ focus_gradient_border_fun("focus", {
     target_color = beautiful.border_normal
 })
 ```
-```
+```lua
 -- OPTION 2:
 -- Focus show briefly in blue before turning to border_focus
 focus_gradient_border_fun("focus", {
@@ -119,6 +123,7 @@ focus_gradient_border_fun("unfocus", {target_color = beautiful.border_normal})
 This plugin allows callbacks instead of target_color, the callback will be
 called with the client as argument.
 
+
 # AWM KBorderless
 
 **AWM KBorderless** is a simple module that removes borders from clients when they are redundant (for example, when maximized or
@@ -127,10 +132,11 @@ when that client is the only visible one)
 You can provide callbacks to this module so it won't change anything
 about a client if it returns true for on its manage signal
 
-```
+```lua
 local my_modules = require("awm_kmodules")
 my_modules("awm_kborderless")(function(c) return othermodule:is_othermodule_client(c) end)
 ```
+
 
 # AWM Ti[t]leless
 
@@ -139,7 +145,7 @@ my_modules("awm_kborderless")(function(c) return othermodule:is_othermodule_clie
 You can provide callbacks to this module so it won't change anything
 about a client if it returns true for on its manage signal
 
-```
+```lua
 local my_modules = require("awm_kmodules")
 my_modules("awm_titleless")(function(c) return othermodule:is_othermodule_client(c) end)
 ```
@@ -148,51 +154,54 @@ my_modules("awm_titleless")(function(c) return othermodule:is_othermodule_client
 
 **AWM Simple Amixer Volume** is a really simple widget to track the volume with
 amixer. It hooks to global XF86 keys.
-```
+```lua
 local my_modules = require("awm_kmodules")
 local volume_widget = my_modules("awm_simple_amixer_volume")
 ```
+
 
 # AWM Simple Pactl Volume
 
 **AWM Simple Pactl Volume** is a really simple widget to track the volume with
 pactl. It hooks to global XF86 keys.
-```
+```lua
 local my_modules = require("awm_kmodules")
 local volume_widget = my_modules("awm_simple_pactl_volume")
 ```
+
 
 # AWM Simple Pacman Widget
 
 **AWM Simple Pacman Widget** is a really simple widget that stays hidden
 checking whether there are updates or not, displaying a ! if there are updates
-available. Custom commands could be provided.
-```
+available.
+```lua
 local my_modules = require("awm_kmodules")
 local pacman_update = my_modules("awm_simple_pacman_widget")
--- Defaults:
-pacman_update.sync_command = "sudo pacman -Sy" -- Command used to refresh pacman's local db (-y == --refresh)
-pacman_update.check_command = "pacman -Qu" -- Command used to check if local packages require updates, checked against local db
 ```
+
 
 # AWM Distributed Tags
 
-**AWM Distributed Tags** is a simple module for AwesomeWM 4 to redistribute the
+**AWM Distributed Tags** is a module for AwesomeWM 4 to redistribute the
 tags among the available screens and move them when new screens are added or removed.
 
-```
+```lua
 local my_modules = require("awm_kmodules")
 my_modules("awm_distributed_tags")
 ```
+
+
 # AWM Battery Widget
 
 **AWM Battery Widget** is a widget for AwesomeWM 4 that monitors the
 battery status through upower. It hooks to the UPower DBus events.
 
-```
+```lua
 local my_modules = require("awm_kmodules")
 local battery_widget = my_modules("awm_battery_widget")
 ```
+
 
 # AWM Playerctl
 
@@ -200,15 +209,16 @@ local battery_widget = my_modules("awm_battery_widget")
 reported by playerctl and directs the XF86 media keys to the most recently
 used player.
 
-```
+```lua
 local my_modules = require("awm_kmodules")
 my_modules("awm_playerctl")
 ```
 
+
 # AWM FZF Launcher
 
 **AWM FZF Launcher** displays a client on the screen with FZF to launch any
-executable in the $PATH, it includes taskbar clients to easy switching.
+executable in the $PATH, it includes taskbar clients for easy switching.
 
 ```
 local my_modules = require("awm_kmodules")
@@ -216,6 +226,7 @@ local awm_fzf_launcher = my_modules("awm_fzf_launcher")
 -- Show the launcher:
 awm_fzf_launcher()
 ```
+
 
 # AWM Locker
 

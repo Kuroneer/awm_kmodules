@@ -2,7 +2,8 @@
     AWM Focus Gradient Border: A simple module for AwesomeWM 4 that applies a gradient over
     time to the focused client border color
 
-    Copyright (C) <2018> Jose Maria Perez Ramos
+
+    Copyright (C) <2018-2021> Jose Maria Perez Ramos
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
