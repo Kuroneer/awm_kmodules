@@ -218,6 +218,16 @@ local awm_fzf_launcher = my_modules("awm_fzf_launcher")
 awm_fzf_launcher()
 ```
 
+# AWM Locker
+
+**AWM Locker** listens to loginctl lock-session event in dbus and spawns the
+provided locker command
+
+```
+my_modules("awm_locker")("slock")
+```
+
+
 ## Authors
 
 * **Jose M Perez Ramos** - [Kuroneer](https://github.com/Kuroneer)
