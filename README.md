@@ -169,11 +169,10 @@ checking whether there are updates or not, displaying a ! if there are updates
 available. Custom commands could be provided.
 ```
 local my_modules = require("awm_kmodules")
-local pacman_update = my_modules("awm_simple_pacman_widget")()
-local apt_update = my_modules("awm_simple_pacman_widget"){
-   check = "bash -c 'apt list --upgradable 2>/dev/null | tail -n +2'",
-   update = terminal .. " -e sudo apt upgrade"
-}
+local pacman_update = my_modules("awm_simple_pacman_widget")
+-- Defaults:
+pacman_update.sync_command = "sudo pacman -Sy" -- Command used to refresh pacman's local db (-y == --refresh)
+pacman_update.check_command = "pacman -Qu" -- Command used to check if local packages require updates, checked against local db
 ```
 
 # AWM Distributed Tags
