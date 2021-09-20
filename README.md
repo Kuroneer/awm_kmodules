@@ -17,6 +17,13 @@ my_modules("awm_brightness") -- Brightness
 my_modules("awm_kborderless") -- Remove borders
 local focus_gradient_border_fun = my_modules("awm_focus_gradient_border")
 ```
+### You can also clone them individually with `git sparse`
+```
+git clone --filter=blob=none --sparse https://github.com/Kuroneer/awm_kmodules
+cd awm_kmodules
+git sparse-checkout set init.lua awm_kborderless awm_titleless
+```
+
 
 For an explaination of the different modules, continue reading.
 
