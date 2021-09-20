@@ -25,7 +25,7 @@ For an explaination of the different modules, continue reading.
 reporting the value with a highly customizable notification.
 
 The default values for a notification like  
-![alt text](awm_brightness_notification/awm_brightness_notification.png "Example notification")  
+![alt text](awm_brightness/awm_brightness_notification.png "Example notification")  
 are:
 ```
 local brightness = require("awm_brightness") -- If awm_brightness.lua is directly in the config dir
