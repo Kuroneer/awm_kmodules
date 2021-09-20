@@ -25,7 +25,7 @@ For an explaination of the different modules, continue reading.
 reporting the value with a highly customizable notification.
 
 The default values for a notification like  
-![alt text](awm_brightness_notification.png "Example notification")  
+![alt text](awm_brightness_notification/awm_brightness_notification.png "Example notification")  
 are:
 ```
 local brightness = require("awm_brightness") -- If awm_brightness.lua is directly in the config dir
@@ -87,7 +87,7 @@ This path will be called with the connected screens as an argument
 
 **AWM Focus Gradient Border** is a module that applies a gradient over time to the focused client border color.
 
-You can see the module in action in this [video](awm_focus_gradient_border.example.mp4)
+You can see the module in action in this [video](awm_focus_gradient_border/awm_focus_gradient_border.example.mp4)
 
 You can customize it with values provided to the function returned by the
 require:
