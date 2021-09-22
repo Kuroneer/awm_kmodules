@@ -28,9 +28,9 @@
       .show_list = false
 
 
-    Version: 1.1.1
+    Version: 1.1.2
     Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
-    Date: 2021.09.20
+    Date: 2021.09.23
 
     Copyright (C) <2018-2021> Jose Maria Perez Ramos
 
@@ -362,6 +362,7 @@ dbus.connect_signal(dbus_interface, function(args)
                 elseif xrandr.trigger_function then
                     xrandr:update_screens(xrandr.trigger_function(screens))
                 end
+                xrandr:clear_notifications()
                 return
             end
 
@@ -434,8 +435,8 @@ dbus.connect_signal(dbus_interface, function(args)
                     end
                 end
                 xrandr:set_screens(cmd, true)
-                xrandr:clear_notifications()
             end
+            xrandr:clear_notifications()
         end) then error("Error spawning xrandr") end
     end
 end)
