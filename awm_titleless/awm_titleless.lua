@@ -13,7 +13,7 @@
 
     Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
     Date: 2021.10.27
-    Version: 2.0.2
+    Version: 2.0.3
 
     Copyright (C) <2018-2021> Jose Maria Perez Ramos
 
@@ -89,7 +89,21 @@ local function show_title(c, layout)
             c.ontop = false
         end
 
-        return previous_titlebar_size ~= get_titlebar_size(c)
+        local changed = previous_titlebar_size ~= get_titlebar_size(c)
+        if changed then
+            -- WORKAROUND: If the client is maximized, need to retrigger it to fix the placement
+            if c.maximized then
+                c.maximized = false
+                c.maximized = true
+            elseif c.maximized_horizontal then
+                c.maximized_horizontal = false
+                c.maximized_horizontal = true
+            elseif c.maximized_vertical then
+                c.maximized_vertical = false
+                c.maximized_vertical = true
+            end
+        end
+        return changed
     end
 end
 
@@ -103,11 +117,12 @@ local handlers = { -- request::geometry for these triggers before actual redraw 
 client.connect_signal("manage", function (c, startup)
     if managed_list:check(c) then
         show_title(c)
+
         c:connect_signal("property::floating", show_title)
         c:connect_signal("property::requests_no_titlebar", show_title)
         c:connect_signal("property::minimized", show_title) -- Affects visibility
         c:connect_signal("property::hidden", show_title) -- Affects visibility
-        c:connect_signal("property::screen", function(c) show_title(c) end) -- Layout may change on screen change
+        c:connect_signal("property::screen", function(c, screen) show_title(c) end) -- Layout may change on screen change
 
         -- To avoid flickering, hook before property::X
         c:connect_signal("request::geometry", function(client, event, args)
