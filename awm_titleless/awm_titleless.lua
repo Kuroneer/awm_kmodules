@@ -12,8 +12,8 @@
 
 
     Author: Jose Maria Perez Ramos <jose.m.perez.ramos+git gmail>
-    Date: 2021.08.23
-    Version: 2.0.1
+    Date: 2021.10.27
+    Version: 2.0.2
 
     Copyright (C) <2018-2021> Jose Maria Perez Ramos
 
@@ -62,9 +62,10 @@ local function get_titlebar_size(c)
     return t + b + l + r
 end
 
+
 local FLOAT_LAYOUT = awful.layout.suit.floating
 local function show_title(c, layout)
-    if managed_list:is_managed(c) then
+    if managed_list:is_managed(c) and c:isvisible() then
         layout = layout or awful.layout.get(c.screen)
         local client_is_normal = c.type == "normal"
         local client_is_floating = c:get_floating()
@@ -104,6 +105,9 @@ client.connect_signal("manage", function (c, startup)
         show_title(c)
         c:connect_signal("property::floating", show_title)
         c:connect_signal("property::requests_no_titlebar", show_title)
+        c:connect_signal("property::minimized", show_title) -- Affects visibility
+        c:connect_signal("property::hidden", show_title) -- Affects visibility
+        c:connect_signal("property::screen", function(c) show_title(c) end) -- Layout may change on screen change
 
         -- To avoid flickering, hook before property::X
         c:connect_signal("request::geometry", function(client, event, args)
@@ -114,27 +118,20 @@ end)
 -- //////////////////////////////////////////////////////////////////////
 
 -- //////////////////////////////////////////////////////////////////////
-local screen_layout = {}
-local function check_all_clients(t)
+local function check_visible_clients(t)
     local screen = t.screen
     if not screen then return end
 
     local current_layout = awful.layout.get(screen)
-    local previous_layout = screen_layout[screen]
-
-    if not previous_layout or (previous_layout == FLOAT_LAYOUT) ~= (current_layout == FLOAT_LAYOUT) then
-        screen_layout[screen] = current_layout
-
-        for _,c in pairs(screen.all_clients) do
-            show_title(c, current_layout)
-        end
+    for _,c in pairs(screen.clients) do
+        show_title(c, current_layout)
     end
 end
 
 -- When a visible tag layout changes or a tag is selected or unselected,
--- check all the clients (not only visible and not only in visible tags)
-tag.connect_signal("property::selected", check_all_clients)
-tag.connect_signal("property::layout", check_all_clients)
+-- check all visible clients
+tag.connect_signal("property::selected", check_visible_clients)
+tag.connect_signal("property::layout", check_visible_clients)
 -- //////////////////////////////////////////////////////////////////////
 
 return setmetatable({}, {__call = function(t, name)
