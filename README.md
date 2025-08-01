@@ -1,3 +1,7 @@
+# Notice
+
+Archiving repository due to moving to wayland
+
 # AWM Kmodules
 
 **AWM Kmodules** is a collection of small modules for [AwesomeWM 4](https://awesomewm.org/).
